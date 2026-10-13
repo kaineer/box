@@ -12,43 +12,62 @@ export const MAX_MOVE_MOTION_COUNT = 100
 type ExecuteMoveMotionParams = {
   camera: Camera
   items: CubeData[]
-  activeId: string
+  selectedIds: string[]
   moveKey: MoveKey
   count: number
 }
 
 /**
- * Двигает активный куб в направлении, если там нет соседа.
- * Останавливается при блокировке.
+ * Пытается сдвинуть все выделенные кубы.
+ * Сосед из того же выделения не блокирует.
+ * Кубы, которые не сдвинулись, выпадают из выделения.
  */
 export function executeMoveMotion({
   camera,
   items,
-  activeId,
+  selectedIds,
   moveKey,
   count,
-}: ExecuteMoveMotionParams): { items: CubeData[]; activeId: string } {
+}: ExecuteMoveMotionParams): { items: CubeData[]; selectedIds: string[] } {
   const direction = snapCardinal(getNavDirection(camera, moveKey))
   let nextItems = items
+  let nextSelectedIds = selectedIds.filter((id) =>
+    nextItems.some((item) => item.id === id),
+  )
   const steps = Math.min(Math.max(1, count), MAX_MOVE_MOTION_COUNT)
 
-  for (let i = 0; i < steps; i += 1) {
-    const neighborId = findNeighbor(
-      nextItems,
-      activeId,
-      direction,
-      NEIGHBOR_OPTIONS,
-    )
-    if (neighborId) break
+  for (let step = 0; step < steps; step += 1) {
+    if (nextSelectedIds.length === 0) break
 
-    const current = nextItems.find((item) => item.id === activeId)
-    if (!current) break
+    const selectedSet = new Set(nextSelectedIds)
+    const movers: string[] = []
 
-    const position = adjacentPosition(current.position, direction, CUBE_STEP)
-    nextItems = nextItems.map((item) =>
-      item.id === activeId ? { ...item, position } : item,
-    )
+    for (const selectedId of nextSelectedIds) {
+      const neighborId = findNeighbor(
+        nextItems,
+        selectedId,
+        direction,
+        NEIGHBOR_OPTIONS,
+      )
+      if (neighborId && !selectedSet.has(neighborId)) continue
+      movers.push(selectedId)
+    }
+
+    if (movers.length === 0) {
+      nextSelectedIds = []
+      break
+    }
+
+    const moverSet = new Set(movers)
+    nextItems = nextItems.map((item) => {
+      if (!moverSet.has(item.id)) return item
+      return {
+        ...item,
+        position: adjacentPosition(item.position, direction, CUBE_STEP),
+      }
+    })
+    nextSelectedIds = movers
   }
 
-  return { items: nextItems, activeId }
+  return { items: nextItems, selectedIds: nextSelectedIds }
 }

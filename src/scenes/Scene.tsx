@@ -12,8 +12,8 @@ import { ModeMenuTracker } from '../features/mode/ModeMenuTracker'
 import { CAMERA_POLAR, TARGET_LERP } from '../shared/config/constants'
 import { useSceneKeyboard } from './useSceneKeyboard'
 
-const { selectCubes, selectActiveId } = cubesSlice.selectors
-const { selectCube } = cubesSlice.actions
+const { selectCubes, selectActiveId, selectSelectedIds } = cubesSlice.selectors
+const { selectCube, addCubeToSelection } = cubesSlice.actions
 const { selectMode, selectModeMenuOpen } = uiSlice.selectors
 
 export function Scene() {
@@ -22,6 +22,9 @@ export function Scene() {
   const cubes = useSelector((state: { cubes: CubesState }) => selectCubes(state))
   const activeId = useSelector((state: { cubes: CubesState }) =>
     selectActiveId(state),
+  )
+  const selectedIds = useSelector((state: { cubes: CubesState }) =>
+    selectSelectedIds(state),
   )
   const mode = useSelector((state: { ui: UiState }) => selectMode(state))
   const modeMenuOpen = useSelector((state: { ui: UiState }) =>
@@ -63,10 +66,14 @@ export function Scene() {
       {cubes.map((cube) => (
         <Cube
           key={cube.id}
-          active={cube.id === activeId}
+          selected={selectedIds.includes(cube.id)}
           insertMode={mode === 'insert'}
           position={cube.position}
-          onSelect={() => dispatch(selectCube(cube.id))}
+          onSelect={(additive) =>
+            dispatch(
+              additive ? addCubeToSelection(cube.id) : selectCube(cube.id),
+            )
+          }
         />
       ))}
       <ModeMenuTracker position={activeCube.position} />

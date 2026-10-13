@@ -19,7 +19,7 @@ import {
   type MoveKey,
 } from '../shared/lib/keys'
 
-const { selectCubes, selectActiveId } = cubesSlice.selectors
+const { selectCubes, selectActiveId, selectSelectedIds } = cubesSlice.selectors
 const { selectCube, removeActiveCube, setCubesState } = cubesSlice.actions
 const { setMode, toggleModeMenu } = uiSlice.actions
 
@@ -39,11 +39,16 @@ export function useSceneKeyboard({
   const activeId = useSelector((state: { cubes: CubesState }) =>
     selectActiveId(state),
   )
+  const selectedIds = useSelector((state: { cubes: CubesState }) =>
+    selectSelectedIds(state),
+  )
 
   const cubesRef = useRef(cubes)
   const activeIdRef = useRef(activeId)
+  const selectedIdsRef = useRef(selectedIds)
   cubesRef.current = cubes
   activeIdRef.current = activeId
+  selectedIdsRef.current = selectedIds
 
   useEffect(() => {
     const insertMotions = createMotionBuffer<MoveKey>({
@@ -53,12 +58,14 @@ export function useSceneKeyboard({
         const next = executeInsertMotion({
           camera,
           items: cubesRef.current,
-          activeId: activeIdRef.current,
+          selectedIds: selectedIdsRef.current,
           moveKey: motion,
           count,
         })
         cubesRef.current = next.items
-        activeIdRef.current = next.activeId
+        selectedIdsRef.current = next.selectedIds
+        activeIdRef.current =
+          next.selectedIds[next.selectedIds.length - 1] ?? activeIdRef.current
         dispatch(setCubesState(next))
       },
     })
@@ -75,6 +82,7 @@ export function useSceneKeyboard({
           count,
         })
         activeIdRef.current = nextId
+        selectedIdsRef.current = [nextId]
         dispatch(selectCube(nextId))
       },
     })
@@ -86,12 +94,14 @@ export function useSceneKeyboard({
         const next = executeMoveMotion({
           camera,
           items: cubesRef.current,
-          activeId: activeIdRef.current,
+          selectedIds: selectedIdsRef.current,
           moveKey: motion,
           count,
         })
         cubesRef.current = next.items
-        activeIdRef.current = next.activeId
+        selectedIdsRef.current = next.selectedIds
+        activeIdRef.current =
+          next.selectedIds[next.selectedIds.length - 1] ?? activeIdRef.current
         dispatch(setCubesState(next))
       },
     })

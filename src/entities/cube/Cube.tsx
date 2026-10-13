@@ -2,22 +2,22 @@ import { Outlines } from '@react-three/drei'
 import { CUBE_SIZE } from '../../shared/config/constants'
 
 type CubeProps = {
-  active: boolean
+  selected: boolean
   insertMode: boolean
   position: readonly [number, number, number]
-  onSelect: () => void
+  onSelect: (additive: boolean) => void
 }
 
-export function Cube({ active, insertMode, position, onSelect }: CubeProps) {
+export function Cube({ selected, insertMode, position, onSelect }: CubeProps) {
   const outlineColor = insertMode ? '#a3be8c' : '#5e81ac'
-  const emissive = active ? outlineColor : '#000000'
+  const emissive = selected ? outlineColor : '#000000'
 
   return (
     <mesh
       position={position as [number, number, number]}
       onClick={(event) => {
         event.stopPropagation()
-        onSelect()
+        onSelect(event.shiftKey)
       }}
     >
       <boxGeometry args={[CUBE_SIZE, CUBE_SIZE, CUBE_SIZE]} />
@@ -28,9 +28,9 @@ export function Cube({ active, insertMode, position, onSelect }: CubeProps) {
         transparent
         opacity={0.75}
         emissive={emissive}
-        emissiveIntensity={active ? 0.25 : 0}
+        emissiveIntensity={selected ? 0.25 : 0}
       />
-      {active && <Outlines thickness={4} color={outlineColor} />}
+      {selected && <Outlines thickness={4} color={outlineColor} />}
     </mesh>
   )
 }
