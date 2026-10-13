@@ -1,0 +1,164 @@
+import { useEffect, useRef, type MutableRefObject } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
+import type { Camera } from 'three'
+import { cubesSlice, type CubesState } from '../entities/cube/cubesSlice'
+import { CUBE_STEP, NEIGHBOR_OPTIONS } from '../shared/config/constants'
+import { adjacentPosition } from '../shared/lib/adjacent-position'
+import { findNeighbor } from '../shared/lib/find-neighbor'
+import {
+  isDeleteCode,
+  isEscapeCode,
+  isInsertModeCode,
+  isShiftCode,
+  moveKeyFromCode,
+  type MoveKey,
+} from '../shared/lib/keys'
+import { getNavDirection } from '../shared/lib/nav-direction'
+import { snapCardinal } from '../shared/lib/snap-direction'
+
+const { selectCubes, selectActiveId } = cubesSlice.selectors
+const { selectCube, addCube, removeActiveCube } = cubesSlice.actions
+
+export type KeysState = Record<MoveKey, boolean>
+
+type UseSceneKeyboardParams = {
+  camera: Camera
+  insertModeRef: MutableRefObject<boolean>
+  keysRef: MutableRefObject<KeysState>
+  shiftRef: MutableRefObject<boolean>
+  setInsertMode: (value: boolean) => void
+}
+
+export function useSceneKeyboard({
+  camera,
+  insertModeRef,
+  keysRef,
+  shiftRef,
+  setInsertMode,
+}: UseSceneKeyboardParams) {
+  const dispatch = useDispatch()
+  const cubes = useSelector((state: { cubes: CubesState }) => selectCubes(state))
+  const activeId = useSelector((state: { cubes: CubesState }) =>
+    selectActiveId(state),
+  )
+
+  const cubesRef = useRef(cubes)
+  const activeIdRef = useRef(activeId)
+  cubesRef.current = cubes
+  activeIdRef.current = activeId
+
+  useEffect(() => {
+    const clearMoveKeys = () => {
+      keysRef.current.w = false
+      keysRef.current.a = false
+      keysRef.current.s = false
+      keysRef.current.d = false
+      keysRef.current.j = false
+      keysRef.current.k = false
+    }
+
+    const handleInsertMove = (moveKey: MoveKey) => {
+      const direction = snapCardinal(getNavDirection(camera, moveKey))
+      const items = cubesRef.current
+      const currentId = activeIdRef.current
+
+      const neighborId = findNeighbor(
+        items,
+        currentId,
+        direction,
+        NEIGHBOR_OPTIONS,
+      )
+      if (neighborId) {
+        dispatch(selectCube(neighborId))
+        return
+      }
+
+      const current = items.find((item) => item.id === currentId) ?? items[0]
+      if (!current) return
+
+      const position = adjacentPosition(current.position, direction, CUBE_STEP)
+      dispatch(addCube({ position }))
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (isEscapeCode(event.code)) {
+        if (insertModeRef.current) {
+          event.preventDefault()
+          setInsertMode(false)
+          clearMoveKeys()
+        }
+        return
+      }
+
+      if (isDeleteCode(event.code)) {
+        if (event.repeat || event.ctrlKey || event.metaKey || event.altKey) {
+          return
+        }
+        event.preventDefault()
+        dispatch(removeActiveCube())
+        return
+      }
+
+      if (isInsertModeCode(event.code)) {
+        if (event.repeat || event.shiftKey || event.ctrlKey || event.metaKey) {
+          return
+        }
+        event.preventDefault()
+        setInsertMode(true)
+        clearMoveKeys()
+        return
+      }
+
+      if (isShiftCode(event.code)) {
+        shiftRef.current = true
+        return
+      }
+
+      const moveKey = moveKeyFromCode(event.code)
+      if (!moveKey) return
+
+      if (insertModeRef.current) {
+        if (event.repeat) return
+        event.preventDefault()
+        handleInsertMove(moveKey)
+        return
+      }
+
+      if (event.shiftKey) {
+        if (event.repeat) return
+        event.preventDefault()
+        const direction = getNavDirection(camera, moveKey)
+        const nextId = findNeighbor(
+          cubesRef.current,
+          activeIdRef.current,
+          direction,
+          NEIGHBOR_OPTIONS,
+        )
+        if (nextId) dispatch(selectCube(nextId))
+        return
+      }
+
+      keysRef.current[moveKey] = true
+    }
+
+    const onKeyUp = (event: KeyboardEvent) => {
+      if (isShiftCode(event.code)) {
+        shiftRef.current = false
+        clearMoveKeys()
+        return
+      }
+
+      const moveKey = moveKeyFromCode(event.code)
+      if (moveKey) {
+        keysRef.current[moveKey] = false
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('keyup', onKeyUp)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('keyup', onKeyUp)
+    }
+  }, [camera, dispatch, insertModeRef, keysRef, setInsertMode, shiftRef])
+}
