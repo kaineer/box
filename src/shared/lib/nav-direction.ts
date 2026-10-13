@@ -2,30 +2,25 @@ import type { Camera } from 'three'
 import { Vector3 } from 'three'
 import type { MoveKey } from './keys'
 
-/** Направление перехода: WASD относительно камеры (XZ), J/K — вверх/вниз. */
+const right = new Vector3()
+const up = new Vector3()
+
+/**
+ * Направление в плоскости экрана (перпендикулярно взгляду):
+ * h/l — влево/вправо, k/j — вверх/вниз (как в vim).
+ */
 export function getNavDirection(camera: Camera, key: MoveKey): Vector3 {
-  if (key === 'j') return new Vector3(0, 1, 0)
-  if (key === 'k') return new Vector3(0, -1, 0)
-
-  const forward = new Vector3()
-  camera.getWorldDirection(forward)
-  forward.y = 0
-  if (forward.lengthSq() < 1e-8) {
-    forward.set(0, 0, -1)
-  } else {
-    forward.normalize()
-  }
-
-  const right = new Vector3().crossVectors(forward, new Vector3(0, 1, 0)).normalize()
+  right.setFromMatrixColumn(camera.matrixWorld, 0).normalize()
+  up.setFromMatrixColumn(camera.matrixWorld, 1).normalize()
 
   switch (key) {
-    case 'w':
-      return forward
-    case 's':
-      return forward.clone().negate()
-    case 'd':
-      return right
-    case 'a':
+    case 'h':
       return right.clone().negate()
+    case 'l':
+      return right.clone()
+    case 'k':
+      return up.clone()
+    case 'j':
+      return up.clone().negate()
   }
 }

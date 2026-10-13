@@ -1,0 +1,57 @@
+.mode-menu-anchor {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 10;
+  will-change: transform;
+}
+
+.mode-menu {
+  min-width: 140px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: #3b4252;
+  border: 1px solid #4c566a;
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(46, 52, 64, 0.28);
+  font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Menlo, monospace;
+  font-size: 13px;
+}
+
+.mode-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #eceff4;
+  font: inherit;
+  letter-spacing: 0.06em;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mode-menu__item--highlight {
+  background: #434c5e;
+}
+
+.mode-menu__item--current {
+  font-weight: 600;
+}
+
+.mode-menu__label {
+  flex: 1;
+}
+
+.mode-menu__mark {
+  color: #ebcb8b;
+}
+
+.mode-menu__hotkey {
+  color: #88c0d0;
+}

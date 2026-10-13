@@ -4,6 +4,7 @@ import { NEIGHBOR_OPTIONS } from '../../shared/config/constants'
 import { findNeighbor } from '../../shared/lib/find-neighbor'
 import type { MoveKey } from '../../shared/lib/keys'
 import { getNavDirection } from '../../shared/lib/nav-direction'
+import { snapCardinal } from '../../shared/lib/snap-direction'
 
 export const MAX_NAVIGATE_MOTION_COUNT = 100
 
@@ -26,7 +27,7 @@ export function executeNavigateMotion({
   moveKey,
   count,
 }: ExecuteNavigateMotionParams): string {
-  const direction = getNavDirection(camera, moveKey)
+  const direction = snapCardinal(getNavDirection(camera, moveKey))
   let nextActiveId = activeId
   const steps = Math.min(Math.max(1, count), MAX_NAVIGATE_MOTION_COUNT)
 

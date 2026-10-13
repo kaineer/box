@@ -1,4 +1,6 @@
 import { Canvas } from '@react-three/fiber'
+import { ModeIndicator } from './features/mode/ModeIndicator'
+import { ModeMenu } from './features/mode/ModeMenu'
 import { Scene } from './scenes/Scene'
 import {
   CAMERA_POSITION,
@@ -15,6 +17,8 @@ function App() {
         <directionalLight position={[5, 5, 5]} intensity={1.1} />
         <Scene />
       </Canvas>
+      <ModeIndicator />
+      <ModeMenu />
     </div>
   )
 }

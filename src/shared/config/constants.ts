@@ -1,6 +1,5 @@
 import { polarAngleFromPosition } from '../lib/polar-angle'
 
-export const ROTATION_SPEED = 1.8
 export const TARGET_LERP = 6
 export const NAV_ALIGNMENT_MIN = 0.75
 export const CUBE_SIZE = 1.5
