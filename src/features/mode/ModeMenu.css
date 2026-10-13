@@ -44,6 +44,12 @@
   font-weight: 600;
 }
 
+.mode-menu__item--action-start {
+  margin-top: 4px;
+  border-top: 1px solid #4c566a;
+  border-radius: 0 0 4px 4px;
+}
+
 .mode-menu__label {
   flex: 1;
 }
