@@ -2,9 +2,10 @@ import { useEffect, useRef, type MutableRefObject } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import type { Camera } from 'three'
 import { cubesSlice, type CubesState } from '../entities/cube/cubesSlice'
-import { CUBE_STEP, NEIGHBOR_OPTIONS } from '../shared/config/constants'
-import { adjacentPosition } from '../shared/lib/adjacent-position'
-import { findNeighbor } from '../shared/lib/find-neighbor'
+import { countDigitFromCode } from '../features/motions/countDigitFromCode'
+import { createMotionBuffer } from '../features/motions/createMotionBuffer'
+import { executeInsertMotion } from '../features/motions/executeInsertMotion'
+import { executeNavigateMotion } from '../features/motions/executeNavigateMotion'
 import {
   isDeleteCode,
   isEscapeCode,
@@ -13,11 +14,9 @@ import {
   moveKeyFromCode,
   type MoveKey,
 } from '../shared/lib/keys'
-import { getNavDirection } from '../shared/lib/nav-direction'
-import { snapCardinal } from '../shared/lib/snap-direction'
 
 const { selectCubes, selectActiveId } = cubesSlice.selectors
-const { selectCube, addCube, removeActiveCube } = cubesSlice.actions
+const { selectCube, removeActiveCube, setCubesState } = cubesSlice.actions
 
 export type KeysState = Record<MoveKey, boolean>
 
@@ -57,33 +56,49 @@ export function useSceneKeyboard({
       keysRef.current.k = false
     }
 
-    const handleInsertMove = (moveKey: MoveKey) => {
-      const direction = snapCardinal(getNavDirection(camera, moveKey))
-      const items = cubesRef.current
-      const currentId = activeIdRef.current
+    const insertMotions = createMotionBuffer<MoveKey>({
+      parseCountDigit: countDigitFromCode,
+      parseMotion: moveKeyFromCode,
+      onMotion: ({ count, motion }) => {
+        const next = executeInsertMotion({
+          camera,
+          items: cubesRef.current,
+          activeId: activeIdRef.current,
+          moveKey: motion,
+          count,
+        })
+        cubesRef.current = next.items
+        activeIdRef.current = next.activeId
+        dispatch(setCubesState(next))
+      },
+    })
 
-      const neighborId = findNeighbor(
-        items,
-        currentId,
-        direction,
-        NEIGHBOR_OPTIONS,
-      )
-      if (neighborId) {
-        dispatch(selectCube(neighborId))
-        return
-      }
+    const navigateMotions = createMotionBuffer<MoveKey>({
+      parseCountDigit: countDigitFromCode,
+      parseMotion: moveKeyFromCode,
+      onMotion: ({ count, motion }) => {
+        const nextId = executeNavigateMotion({
+          camera,
+          items: cubesRef.current,
+          activeId: activeIdRef.current,
+          moveKey: motion,
+          count,
+        })
+        activeIdRef.current = nextId
+        dispatch(selectCube(nextId))
+      },
+    })
 
-      const current = items.find((item) => item.id === currentId) ?? items[0]
-      if (!current) return
-
-      const position = adjacentPosition(current.position, direction, CUBE_STEP)
-      dispatch(addCube({ position }))
+    const resetMotions = () => {
+      insertMotions.reset()
+      navigateMotions.reset()
     }
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (isEscapeCode(event.code)) {
         if (insertModeRef.current) {
           event.preventDefault()
+          resetMotions()
           setInsertMode(false)
           clearMoveKeys()
         }
@@ -95,6 +110,7 @@ export function useSceneKeyboard({
           return
         }
         event.preventDefault()
+        resetMotions()
         dispatch(removeActiveCube())
         return
       }
@@ -104,6 +120,7 @@ export function useSceneKeyboard({
           return
         }
         event.preventDefault()
+        resetMotions()
         setInsertMode(true)
         clearMoveKeys()
         return
@@ -114,30 +131,33 @@ export function useSceneKeyboard({
         return
       }
 
-      const moveKey = moveKeyFromCode(event.code)
-      if (!moveKey) return
-
       if (insertModeRef.current) {
         if (event.repeat) return
-        event.preventDefault()
-        handleInsertMove(moveKey)
+        if (insertMotions.handleKey(event.code)) {
+          event.preventDefault()
+        }
         return
       }
+
+      // Вне вставки: цифры копят счётчик, Shift+WASD/JK завершают переход на N шагов
+      if (countDigitFromCode(event.code) !== null) {
+        if (event.repeat) return
+        event.preventDefault()
+        navigateMotions.handleKey(event.code)
+        return
+      }
+
+      const moveKey = moveKeyFromCode(event.code)
+      if (!moveKey) return
 
       if (event.shiftKey) {
         if (event.repeat) return
         event.preventDefault()
-        const direction = getNavDirection(camera, moveKey)
-        const nextId = findNeighbor(
-          cubesRef.current,
-          activeIdRef.current,
-          direction,
-          NEIGHBOR_OPTIONS,
-        )
-        if (nextId) dispatch(selectCube(nextId))
+        navigateMotions.handleKey(event.code)
         return
       }
 
+      navigateMotions.reset()
       keysRef.current[moveKey] = true
     }
 
@@ -157,6 +177,8 @@ export function useSceneKeyboard({
     window.addEventListener('keydown', onKeyDown)
     window.addEventListener('keyup', onKeyUp)
     return () => {
+      insertMotions.dispose()
+      navigateMotions.dispose()
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('keyup', onKeyUp)
     }

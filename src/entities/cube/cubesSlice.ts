@@ -39,6 +39,13 @@ export const cubesSlice = createSlice({
       state.items = remaining
       state.activeId = nextId
     },
+    setCubesState(
+      state,
+      action: PayloadAction<{ items: CubeData[]; activeId: string }>,
+    ) {
+      state.items = action.payload.items
+      state.activeId = action.payload.activeId
+    },
   },
   selectors: {
     selectCubes: (state) => state.items,
