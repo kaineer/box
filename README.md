@@ -1,32 +1,100 @@
-# React + TypeScript + Vite
+# box
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Редактор кубов на сетке (React + Three.js). Управление в духе vim: режимы, счётчик повторов, меню по Space.
 
-Currently, two official plugins are available:
+## Запуск
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install
+npm run dev
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Сборка: `npm run build`.
+
+## Режимы
+
+| Режим   | Вход | Выход |
+|---------|------|-------|
+| NORM    | по умолчанию / Esc | — |
+| INSERT  | `I`  | Esc |
+| MOVE    | `M`  | Esc |
+| SELECT  | `V`  | Esc |
+
+Режимы INSERT / MOVE / SELECT включаются только из NORM (или через меню).
+
+Текущий режим показан индикатором в углу экрана.
+
+## Камера
+
+- ЛКМ + перетаскивание — вращение вокруг активного куба
+- Колёсико — зум
+- В режиме SELECT вращение и pan отключены (чтобы рисовать выделение)
+
+## Выделение
+
+- Клик по кубу — выбрать только его
+- Shift+клик — добавить куб к выделению (или сделать его основным)
+- В SELECT: ЛКМ + прямоугольник на канвасе — выбрать все кубы, попавшие в рамку (если ни один не попал, выделение не меняется)
+
+Основной (primary) куб — последний в выделении; камера следует за ним.
+
+## Навигация (NORM)
+
+Направления относительно экрана (не мировых осей):
+
+| Клавиша | Направление |
+|---------|-------------|
+| `h`     | влево |
+| `j`     | вниз |
+| `k`     | вверх |
+| `l`     | вправо |
+
+Переход только по соседним кубам на сетке. Если соседа нет — движение останавливается.
+
+Можно указать число повторов перед направлением, например `3l` — три шага вправо. Между нажатиями не больше ~500 мс, иначе счётчик сбрасывается.
+
+## INSERT
+
+Вставка соседних кубов для **всех** выделенных:
+
+- свободная клетка в направлении → создать куб; он входит в новое выделение
+- клетка занята → выделить соседа, текущий куб из выделения уходит
+
+Те же `h`/`j`/`k`/`l` и необязательный счётчик (`5k` — пять шагов вверх).
+
+## MOVE
+
+Сдвиг выделенных кубов по сетке в направлении `h`/`j`/`k`/`l` (со счётчиком). Другие выделенные кубы не блокируют друг друга; чужой невыделенный куб — препятствие.
+
+## SELECT
+
+1. `V` — войти в режим
+2. ЛКМ — тянуть прямоугольник выделения
+3. Отпустить — кубы внутри рамки становятся выбранными
+4. `Esc` — вернуться в NORM
+
+## Удаление
+
+`X` — удалить все выделенные кубы (не работает, пока открыто меню режимов).
+
+## Меню режимов
+
+`Space` — открыть / закрыть меню у активного куба.
+
+| Клавиша | Действие |
+|---------|----------|
+| `j` / ↓ | ниже |
+| `k` / ↑ | выше |
+| `o` / Enter | выполнить пункт |
+| Esc / Space | закрыть (Esc также сбрасывает режим в NORM) |
+
+Пункты: NORM, INSERT, MOVE, SELECT, WRITE, READ. Горячие клавиши пунктов работают и при открытом меню.
+
+## Файлы (YAML)
+
+| Клавиша | Действие |
+|---------|----------|
+| `W` | сохранить сцену (диалог «Сохранить как») |
+| `R` | загрузить сцену из YAML |
+
+Формат хранит кубы и активный id.
