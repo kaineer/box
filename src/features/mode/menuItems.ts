@@ -29,6 +29,11 @@ export const MODE_MENU_ITEMS: ModeMenuItem[] = [
   { kind: 'action', id: 'read', label: 'READ' },
 ]
 
+const ACTION_HOTKEYS: Record<'write' | 'read', string> = {
+  write: 'W',
+  read: 'R',
+}
+
 export function menuItemHotkey(
   item: ModeMenuItem,
   currentMode: EditorMode,
@@ -36,5 +41,5 @@ export function menuItemHotkey(
   if (item.kind === 'mode') {
     return modeMenuHotkey(item.id, currentMode)
   }
-  return null
+  return ACTION_HOTKEYS[item.id]
 }

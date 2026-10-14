@@ -20,6 +20,14 @@ export function isMoveModeCode(code: string): boolean {
   return code === 'KeyM'
 }
 
+export function isWriteCode(code: string): boolean {
+  return code === 'KeyW'
+}
+
+export function isReadCode(code: string): boolean {
+  return code === 'KeyR'
+}
+
 export function isEscapeCode(code: string): boolean {
   return code === 'Escape'
 }
@@ -42,4 +50,19 @@ export function isArrowDownCode(code: string): boolean {
 
 export function isEnterCode(code: string): boolean {
   return code === 'Enter' || code === 'NumpadEnter'
+}
+
+/** Навигация по меню: k / ↑ */
+export function isMenuUpCode(code: string): boolean {
+  return code === 'KeyK' || code === 'ArrowUp'
+}
+
+/** Навигация по меню: j / ↓ */
+export function isMenuDownCode(code: string): boolean {
+  return code === 'KeyJ' || code === 'ArrowDown'
+}
+
+/** Подтверждение пункта меню: o / Enter */
+export function isMenuConfirmCode(code: string): boolean {
+  return code === 'KeyO' || isEnterCode(code)
 }

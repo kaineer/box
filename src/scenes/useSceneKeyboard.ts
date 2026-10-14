@@ -10,11 +10,17 @@ import { executeMoveMotion } from '../features/motions/executeMoveMotion'
 import { executeNavigateMotion } from '../features/motions/executeNavigateMotion'
 import type { EditorMode } from '../shared/config/editor-mode'
 import {
+  runReadCubesAction,
+  runWriteCubesAction,
+} from '../features/io/cubeIoActions'
+import {
   isDeleteCode,
   isEscapeCode,
   isInsertModeCode,
   isMoveModeCode,
+  isReadCode,
   isSpaceCode,
+  isWriteCode,
   moveKeyFromCode,
   type MoveKey,
 } from '../shared/lib/keys'
@@ -165,6 +171,30 @@ export function useSceneKeyboard({
         event.preventDefault()
         resetMotions()
         dispatch(setMode('move'))
+        return
+      }
+
+      if (isWriteCode(event.code)) {
+        if (event.repeat || event.shiftKey || event.ctrlKey || event.metaKey) {
+          return
+        }
+        event.preventDefault()
+        resetMotions()
+        void runWriteCubesAction(
+          dispatch,
+          cubesRef.current,
+          activeIdRef.current,
+        )
+        return
+      }
+
+      if (isReadCode(event.code)) {
+        if (event.repeat || event.shiftKey || event.ctrlKey || event.metaKey) {
+          return
+        }
+        event.preventDefault()
+        resetMotions()
+        void runReadCubesAction(dispatch)
         return
       }
 

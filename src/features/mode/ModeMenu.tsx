@@ -1,12 +1,17 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { cubesSlice, type CubesState } from '../../entities/cube/cubesSlice'
-import { syncCubeIdCounter } from '../../entities/cube/model'
 import { uiSlice, type UiState } from '../../entities/ui/uiSlice'
 import type { EditorMode } from '../../shared/config/editor-mode'
-import { isArrowDownCode, isArrowUpCode, isEnterCode } from '../../shared/lib/keys'
-import { readCubesFile } from '../io/readCubesFile'
-import { writeCubesFile } from '../io/writeCubesFile'
+import {
+  isMenuConfirmCode,
+  isMenuDownCode,
+  isMenuUpCode,
+} from '../../shared/lib/keys'
+import {
+  runReadCubesAction,
+  runWriteCubesAction,
+} from '../io/cubeIoActions'
 import {
   menuItemHotkey,
   MODE_MENU_ITEMS,
@@ -19,9 +24,8 @@ import {
 import './ModeMenu.css'
 
 const { selectCubes, selectActiveId } = cubesSlice.selectors
-const { setCubesState } = cubesSlice.actions
 const { selectMode, selectModeMenuOpen } = uiSlice.selectors
-const { setMode, closeModeMenu } = uiSlice.actions
+const { setMode } = uiSlice.actions
 
 function currentModeItemIndex(mode: EditorMode): number {
   return MODE_MENU_ITEMS.findIndex(
@@ -60,22 +64,11 @@ export function ModeMenu() {
       }
 
       if (item.id === 'write') {
-        await writeCubesFile(cubes, activeId)
-        dispatch(closeModeMenu())
+        await runWriteCubesAction(dispatch, cubes, activeId)
         return
       }
 
-      const document = await readCubesFile()
-      if (document) {
-        syncCubeIdCounter(document.cubes)
-        dispatch(
-          setCubesState({
-            items: document.cubes,
-            activeId: document.activeId,
-          }),
-        )
-      }
-      dispatch(closeModeMenu())
+      await runReadCubesAction(dispatch)
     },
     [activeId, cubes, dispatch],
   )
@@ -84,7 +77,7 @@ export function ModeMenu() {
     if (!open) return
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (isArrowUpCode(event.code)) {
+      if (isMenuUpCode(event.code)) {
         event.preventDefault()
         setHighlight(
           (index) =>
@@ -93,13 +86,13 @@ export function ModeMenu() {
         return
       }
 
-      if (isArrowDownCode(event.code)) {
+      if (isMenuDownCode(event.code)) {
         event.preventDefault()
         setHighlight((index) => (index + 1) % MODE_MENU_ITEMS.length)
         return
       }
 
-      if (isEnterCode(event.code)) {
+      if (isMenuConfirmCode(event.code)) {
         event.preventDefault()
         const selected = MODE_MENU_ITEMS[highlight]
         if (selected) void runItem(selected)
