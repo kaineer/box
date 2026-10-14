@@ -37,6 +37,14 @@ export const cubesSlice = createSlice({
         id,
       ]
     },
+    /** Заменить выделение списком кубов (прямоугольное выделение). */
+    setSelection(state, action: PayloadAction<string[]>) {
+      const valid = action.payload.filter((id) =>
+        state.items.some((cube) => cube.id === id),
+      )
+      if (valid.length === 0) return
+      state.selectedIds = valid
+    },
     addCube(state, action: PayloadAction<{ position: [number, number, number] }>) {
       const id = createCubeId()
       state.items.push({ id, position: action.payload.position })

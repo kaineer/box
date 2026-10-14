@@ -28,3 +28,8 @@
   color: #2e3440;
   background: #88c0d0;
 }
+
+.mode-indicator--select {
+  color: #eceff4;
+  background: #5e81ac;
+}

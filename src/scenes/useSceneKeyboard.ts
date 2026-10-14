@@ -19,6 +19,7 @@ import {
   isInsertModeCode,
   isMoveModeCode,
   isReadCode,
+  isSelectModeCode,
   isSpaceCode,
   isWriteCode,
   moveKeyFromCode,
@@ -133,7 +134,8 @@ export function useSceneKeyboard({
         if (
           modeMenuOpenRef.current ||
           modeRef.current === 'insert' ||
-          modeRef.current === 'move'
+          modeRef.current === 'move' ||
+          modeRef.current === 'select'
         ) {
           event.preventDefault()
           resetMotions()
@@ -171,6 +173,22 @@ export function useSceneKeyboard({
         event.preventDefault()
         resetMotions()
         dispatch(setMode('move'))
+        return
+      }
+
+      if (isSelectModeCode(event.code)) {
+        if (
+          event.repeat ||
+          event.shiftKey ||
+          event.ctrlKey ||
+          event.metaKey ||
+          (!modeMenuOpenRef.current && modeRef.current !== 'norm')
+        ) {
+          return
+        }
+        event.preventDefault()
+        resetMotions()
+        dispatch(setMode('select'))
         return
       }
 

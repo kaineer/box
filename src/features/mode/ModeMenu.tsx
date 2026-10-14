@@ -1,3 +1,4 @@
+import clsx from 'clsx'
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { cubesSlice, type CubesState } from '../../entities/cube/cubesSlice'
@@ -17,11 +18,11 @@ import {
   MODE_MENU_ITEMS,
   type ModeMenuItem,
 } from './menuItems'
+import styles from './ModeMenu.module.css'
 import {
   getModeMenuScreen,
   subscribeModeMenuScreen,
 } from './modeMenuScreen'
-import './ModeMenu.css'
 
 const { selectCubes, selectActiveId } = cubesSlice.selectors
 const { selectMode, selectModeMenuOpen } = uiSlice.selectors
@@ -107,12 +108,12 @@ export function ModeMenu() {
 
   return (
     <div
-      className="mode-menu-anchor"
+      className={styles.anchor}
       style={{
         transform: `translate(${screen.x}px, ${screen.y}px) translate(16px, -50%)`,
       }}
     >
-      <div className="mode-menu" role="menu" aria-label="Modes">
+      <div className={styles.menu} role="menu" aria-label="Modes">
         {MODE_MENU_ITEMS.map((item, index) => {
           const hotkey = menuItemHotkey(item, mode)
           const isCurrent = item.kind === 'mode' && item.id === mode
@@ -126,20 +127,17 @@ export function ModeMenu() {
               key={item.id}
               type="button"
               role="menuitem"
-              className={[
-                'mode-menu__item',
-                isHighlighted ? 'mode-menu__item--highlight' : '',
-                isCurrent ? 'mode-menu__item--current' : '',
-                isFirstAction ? 'mode-menu__item--action-start' : '',
-              ]
-                .filter(Boolean)
-                .join(' ')}
+              className={clsx(styles.item, {
+                [styles.highlight]: isHighlighted,
+                [styles.current]: isCurrent,
+                [styles.actionStart]: isFirstAction,
+              })}
               onMouseEnter={() => setHighlight(index)}
               onClick={() => void runItem(item)}
             >
-              <span className="mode-menu__label">{item.label}</span>
-              {isCurrent && <span className="mode-menu__mark">*</span>}
-              {hotkey && <span className="mode-menu__hotkey">[{hotkey}]</span>}
+              <span className={styles.label}>{item.label}</span>
+              {isCurrent && <span className={styles.mark}>*</span>}
+              {hotkey && <span className={styles.hotkey}>[{hotkey}]</span>}
             </button>
           )
         })}

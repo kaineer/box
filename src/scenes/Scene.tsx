@@ -9,6 +9,7 @@ import { cubesSlice, type CubesState } from '../entities/cube/cubesSlice'
 import { INITIAL_CUBES } from '../entities/cube/model'
 import { uiSlice, type UiState } from '../entities/ui/uiSlice'
 import { ModeMenuTracker } from '../features/mode/ModeMenuTracker'
+import { SelectionMarquee } from '../features/selection/SelectionMarquee'
 import { CAMERA_POLAR, TARGET_LERP } from '../shared/config/constants'
 import { useSceneKeyboard } from './useSceneKeyboard'
 
@@ -77,9 +78,12 @@ export function Scene() {
         />
       ))}
       <ModeMenuTracker position={activeCube.position} />
+      <SelectionMarquee />
       <OrbitControls
         ref={controlsRef}
         enableDamping
+        enableRotate={mode !== 'select'}
+        enablePan={mode !== 'select'}
         target={[...INITIAL_CUBES[0].position]}
         minPolarAngle={CAMERA_POLAR}
         maxPolarAngle={CAMERA_POLAR}

@@ -20,6 +20,10 @@ export function isMoveModeCode(code: string): boolean {
   return code === 'KeyM'
 }
 
+export function isSelectModeCode(code: string): boolean {
+  return code === 'KeyV'
+}
+
 export function isWriteCode(code: string): boolean {
   return code === 'KeyW'
 }
