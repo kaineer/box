@@ -1,22 +1,20 @@
 import { OrbitControls } from '@react-three/drei'
 import { useFrame, useThree } from '@react-three/fiber'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { Vector3 } from 'three'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import { Cube } from '../entities/cube/Cube'
 import { cubesSlice, type CubesState } from '../entities/cube/cubesSlice'
 import { INITIAL_CUBES } from '../entities/cube/model'
-import {
-  CAMERA_POLAR,
-  ROTATION_SPEED,
-  TARGET_LERP,
-} from '../shared/config/constants'
-import { orbitCameraAroundY } from '../shared/lib/orbit-around'
-import { useSceneKeyboard, type KeysState } from './useSceneKeyboard'
+import { uiSlice, type UiState } from '../entities/ui/uiSlice'
+import { ModeMenuTracker } from '../features/mode/ModeMenuTracker'
+import { CAMERA_POLAR, TARGET_LERP } from '../shared/config/constants'
+import { useSceneKeyboard } from './useSceneKeyboard'
 
-const { selectCubes, selectActiveId } = cubesSlice.selectors
-const { selectCube } = cubesSlice.actions
+const { selectCubes, selectActiveId, selectSelectedIds } = cubesSlice.selectors
+const { selectCube, addCubeToSelection } = cubesSlice.actions
+const { selectMode, selectModeMenuOpen } = uiSlice.selectors
 
 export function Scene() {
   const { camera } = useThree()
@@ -25,35 +23,33 @@ export function Scene() {
   const activeId = useSelector((state: { cubes: CubesState }) =>
     selectActiveId(state),
   )
-  const [insertMode, setInsertMode] = useState(false)
+  const selectedIds = useSelector((state: { cubes: CubesState }) =>
+    selectSelectedIds(state),
+  )
+  const mode = useSelector((state: { ui: UiState }) => selectMode(state))
+  const modeMenuOpen = useSelector((state: { ui: UiState }) =>
+    selectModeMenuOpen(state),
+  )
 
-  const insertModeRef = useRef(insertMode)
+  const modeRef = useRef(mode)
+  const modeMenuOpenRef = useRef(modeMenuOpen)
   const controlsRef = useRef<OrbitControlsImpl>(null)
   const desiredTarget = useRef(new Vector3(...INITIAL_CUBES[0].position))
-  const keysRef = useRef<KeysState>({
-    w: false,
-    a: false,
-    s: false,
-    d: false,
-    j: false,
-    k: false,
-  })
-  const shiftRef = useRef(false)
 
-  insertModeRef.current = insertMode
+  modeRef.current = mode
+  modeMenuOpenRef.current = modeMenuOpen
+
+  const activeCube =
+    cubes.find((item) => item.id === activeId) ?? cubes[0] ?? INITIAL_CUBES[0]
 
   useEffect(() => {
-    const cube =
-      cubes.find((item) => item.id === activeId) ?? cubes[0] ?? INITIAL_CUBES[0]
-    desiredTarget.current.set(...cube.position)
-  }, [activeId, cubes])
+    desiredTarget.current.set(...activeCube.position)
+  }, [activeCube.position])
 
   useSceneKeyboard({
     camera,
-    insertModeRef,
-    keysRef,
-    shiftRef,
-    setInsertMode,
+    modeRef,
+    modeMenuOpenRef,
   })
 
   useFrame((_, delta) => {
@@ -61,21 +57,8 @@ export function Scene() {
     if (controls) {
       const t = 1 - Math.exp(-TARGET_LERP * delta)
       controls.target.lerp(desiredTarget.current, t)
+      controls.update()
     }
-
-    if (!shiftRef.current && !insertModeRef.current && controls) {
-      const { a, d } = keysRef.current
-      const direction = (a ? 1 : 0) + (d ? -1 : 0)
-      if (direction !== 0) {
-        orbitCameraAroundY(
-          camera,
-          controls.target,
-          direction * ROTATION_SPEED * delta,
-        )
-      }
-    }
-
-    controls?.update()
   })
 
   return (
@@ -83,12 +66,17 @@ export function Scene() {
       {cubes.map((cube) => (
         <Cube
           key={cube.id}
-          active={cube.id === activeId}
-          insertMode={insertMode}
+          selected={selectedIds.includes(cube.id)}
+          insertMode={mode === 'insert'}
           position={cube.position}
-          onSelect={() => dispatch(selectCube(cube.id))}
+          onSelect={(additive) =>
+            dispatch(
+              additive ? addCubeToSelection(cube.id) : selectCube(cube.id),
+            )
+          }
         />
       ))}
+      <ModeMenuTracker position={activeCube.position} />
       <OrbitControls
         ref={controlsRef}
         enableDamping

@@ -2,91 +2,203 @@ import { useEffect, useRef, type MutableRefObject } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import type { Camera } from 'three'
 import { cubesSlice, type CubesState } from '../entities/cube/cubesSlice'
-import { CUBE_STEP, NEIGHBOR_OPTIONS } from '../shared/config/constants'
-import { adjacentPosition } from '../shared/lib/adjacent-position'
-import { findNeighbor } from '../shared/lib/find-neighbor'
+import { uiSlice } from '../entities/ui/uiSlice'
+import { countDigitFromCode } from '../features/motions/countDigitFromCode'
+import { createMotionBuffer } from '../features/motions/createMotionBuffer'
+import { executeInsertMotion } from '../features/motions/executeInsertMotion'
+import { executeMoveMotion } from '../features/motions/executeMoveMotion'
+import { executeNavigateMotion } from '../features/motions/executeNavigateMotion'
+import type { EditorMode } from '../shared/config/editor-mode'
+import {
+  runReadCubesAction,
+  runWriteCubesAction,
+} from '../features/io/cubeIoActions'
 import {
   isDeleteCode,
   isEscapeCode,
   isInsertModeCode,
-  isShiftCode,
+  isMoveModeCode,
+  isReadCode,
+  isSpaceCode,
+  isWriteCode,
   moveKeyFromCode,
   type MoveKey,
 } from '../shared/lib/keys'
-import { getNavDirection } from '../shared/lib/nav-direction'
-import { snapCardinal } from '../shared/lib/snap-direction'
 
-const { selectCubes, selectActiveId } = cubesSlice.selectors
-const { selectCube, addCube, removeActiveCube } = cubesSlice.actions
-
-export type KeysState = Record<MoveKey, boolean>
+const { selectCubes, selectActiveId, selectSelectedIds } = cubesSlice.selectors
+const { selectCube, removeActiveCube, setCubesState } = cubesSlice.actions
+const { setMode, toggleModeMenu } = uiSlice.actions
 
 type UseSceneKeyboardParams = {
   camera: Camera
-  insertModeRef: MutableRefObject<boolean>
-  keysRef: MutableRefObject<KeysState>
-  shiftRef: MutableRefObject<boolean>
-  setInsertMode: (value: boolean) => void
+  modeRef: MutableRefObject<EditorMode>
+  modeMenuOpenRef: MutableRefObject<boolean>
 }
 
 export function useSceneKeyboard({
   camera,
-  insertModeRef,
-  keysRef,
-  shiftRef,
-  setInsertMode,
+  modeRef,
+  modeMenuOpenRef,
 }: UseSceneKeyboardParams) {
   const dispatch = useDispatch()
   const cubes = useSelector((state: { cubes: CubesState }) => selectCubes(state))
   const activeId = useSelector((state: { cubes: CubesState }) =>
     selectActiveId(state),
   )
+  const selectedIds = useSelector((state: { cubes: CubesState }) =>
+    selectSelectedIds(state),
+  )
 
   const cubesRef = useRef(cubes)
   const activeIdRef = useRef(activeId)
+  const selectedIdsRef = useRef(selectedIds)
   cubesRef.current = cubes
   activeIdRef.current = activeId
+  selectedIdsRef.current = selectedIds
 
   useEffect(() => {
-    const clearMoveKeys = () => {
-      keysRef.current.w = false
-      keysRef.current.a = false
-      keysRef.current.s = false
-      keysRef.current.d = false
-      keysRef.current.j = false
-      keysRef.current.k = false
-    }
+    const insertMotions = createMotionBuffer<MoveKey>({
+      parseCountDigit: countDigitFromCode,
+      parseMotion: moveKeyFromCode,
+      onMotion: ({ count, motion }) => {
+        const next = executeInsertMotion({
+          camera,
+          items: cubesRef.current,
+          selectedIds: selectedIdsRef.current,
+          moveKey: motion,
+          count,
+        })
+        cubesRef.current = next.items
+        selectedIdsRef.current = next.selectedIds
+        activeIdRef.current =
+          next.selectedIds[next.selectedIds.length - 1] ?? activeIdRef.current
+        dispatch(setCubesState(next))
+      },
+    })
 
-    const handleInsertMove = (moveKey: MoveKey) => {
-      const direction = snapCardinal(getNavDirection(camera, moveKey))
-      const items = cubesRef.current
-      const currentId = activeIdRef.current
+    const navigateMotions = createMotionBuffer<MoveKey>({
+      parseCountDigit: countDigitFromCode,
+      parseMotion: moveKeyFromCode,
+      onMotion: ({ count, motion }) => {
+        const nextId = executeNavigateMotion({
+          camera,
+          items: cubesRef.current,
+          activeId: activeIdRef.current,
+          moveKey: motion,
+          count,
+        })
+        activeIdRef.current = nextId
+        selectedIdsRef.current = [nextId]
+        dispatch(selectCube(nextId))
+      },
+    })
 
-      const neighborId = findNeighbor(
-        items,
-        currentId,
-        direction,
-        NEIGHBOR_OPTIONS,
-      )
-      if (neighborId) {
-        dispatch(selectCube(neighborId))
-        return
-      }
+    const moveMotions = createMotionBuffer<MoveKey>({
+      parseCountDigit: countDigitFromCode,
+      parseMotion: moveKeyFromCode,
+      onMotion: ({ count, motion }) => {
+        const next = executeMoveMotion({
+          camera,
+          items: cubesRef.current,
+          selectedIds: selectedIdsRef.current,
+          moveKey: motion,
+          count,
+        })
+        cubesRef.current = next.items
+        selectedIdsRef.current = next.selectedIds
+        activeIdRef.current =
+          next.selectedIds[next.selectedIds.length - 1] ?? activeIdRef.current
+        dispatch(setCubesState(next))
+      },
+    })
 
-      const current = items.find((item) => item.id === currentId) ?? items[0]
-      if (!current) return
-
-      const position = adjacentPosition(current.position, direction, CUBE_STEP)
-      dispatch(addCube({ position }))
+    const resetMotions = () => {
+      insertMotions.reset()
+      navigateMotions.reset()
+      moveMotions.reset()
     }
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (isEscapeCode(event.code)) {
-        if (insertModeRef.current) {
-          event.preventDefault()
-          setInsertMode(false)
-          clearMoveKeys()
+      if (isSpaceCode(event.code)) {
+        if (event.repeat || event.ctrlKey || event.metaKey || event.altKey) {
+          return
         }
+        event.preventDefault()
+        resetMotions()
+        dispatch(toggleModeMenu())
+        return
+      }
+
+      if (isEscapeCode(event.code)) {
+        if (
+          modeMenuOpenRef.current ||
+          modeRef.current === 'insert' ||
+          modeRef.current === 'move'
+        ) {
+          event.preventDefault()
+          resetMotions()
+          dispatch(setMode('norm'))
+        }
+        return
+      }
+
+      if (isInsertModeCode(event.code)) {
+        if (
+          event.repeat ||
+          event.shiftKey ||
+          event.ctrlKey ||
+          event.metaKey ||
+          (!modeMenuOpenRef.current && modeRef.current !== 'norm')
+        ) {
+          return
+        }
+        event.preventDefault()
+        resetMotions()
+        dispatch(setMode('insert'))
+        return
+      }
+
+      if (isMoveModeCode(event.code)) {
+        if (
+          event.repeat ||
+          event.shiftKey ||
+          event.ctrlKey ||
+          event.metaKey ||
+          (!modeMenuOpenRef.current && modeRef.current !== 'norm')
+        ) {
+          return
+        }
+        event.preventDefault()
+        resetMotions()
+        dispatch(setMode('move'))
+        return
+      }
+
+      if (isWriteCode(event.code)) {
+        if (event.repeat || event.shiftKey || event.ctrlKey || event.metaKey) {
+          return
+        }
+        event.preventDefault()
+        resetMotions()
+        void runWriteCubesAction(
+          dispatch,
+          cubesRef.current,
+          activeIdRef.current,
+        )
+        return
+      }
+
+      if (isReadCode(event.code)) {
+        if (event.repeat || event.shiftKey || event.ctrlKey || event.metaKey) {
+          return
+        }
+        event.preventDefault()
+        resetMotions()
+        void runReadCubesAction(dispatch)
+        return
+      }
+
+      if (modeMenuOpenRef.current) {
         return
       }
 
@@ -95,70 +207,43 @@ export function useSceneKeyboard({
           return
         }
         event.preventDefault()
+        resetMotions()
         dispatch(removeActiveCube())
         return
       }
 
-      if (isInsertModeCode(event.code)) {
-        if (event.repeat || event.shiftKey || event.ctrlKey || event.metaKey) {
-          return
+      if (event.repeat) return
+
+      if (modeRef.current === 'insert') {
+        if (insertMotions.handleKey(event.code)) {
+          event.preventDefault()
         }
-        event.preventDefault()
-        setInsertMode(true)
-        clearMoveKeys()
         return
       }
 
-      if (isShiftCode(event.code)) {
-        shiftRef.current = true
+      if (modeRef.current === 'move') {
+        if (moveMotions.handleKey(event.code)) {
+          event.preventDefault()
+        }
         return
       }
 
-      const moveKey = moveKeyFromCode(event.code)
-      if (!moveKey) return
-
-      if (insertModeRef.current) {
-        if (event.repeat) return
-        event.preventDefault()
-        handleInsertMove(moveKey)
-        return
-      }
-
-      if (event.shiftKey) {
-        if (event.repeat) return
-        event.preventDefault()
-        const direction = getNavDirection(camera, moveKey)
-        const nextId = findNeighbor(
-          cubesRef.current,
-          activeIdRef.current,
-          direction,
-          NEIGHBOR_OPTIONS,
-        )
-        if (nextId) dispatch(selectCube(nextId))
-        return
-      }
-
-      keysRef.current[moveKey] = true
-    }
-
-    const onKeyUp = (event: KeyboardEvent) => {
-      if (isShiftCode(event.code)) {
-        shiftRef.current = false
-        clearMoveKeys()
-        return
-      }
-
-      const moveKey = moveKeyFromCode(event.code)
-      if (moveKey) {
-        keysRef.current[moveKey] = false
+      if (
+        countDigitFromCode(event.code) !== null ||
+        moveKeyFromCode(event.code) !== null
+      ) {
+        if (navigateMotions.handleKey(event.code)) {
+          event.preventDefault()
+        }
       }
     }
 
     window.addEventListener('keydown', onKeyDown)
-    window.addEventListener('keyup', onKeyUp)
     return () => {
+      insertMotions.dispose()
+      navigateMotions.dispose()
+      moveMotions.dispose()
       window.removeEventListener('keydown', onKeyDown)
-      window.removeEventListener('keyup', onKeyUp)
     }
-  }, [camera, dispatch, insertModeRef, keysRef, setInsertMode, shiftRef])
+  }, [camera, dispatch, modeMenuOpenRef, modeRef])
 }

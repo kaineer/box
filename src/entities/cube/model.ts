@@ -16,3 +16,14 @@ export function createCubeId(): string {
   nextCubeId += 1
   return `cube-${nextCubeId}`
 }
+
+/** Чтобы новые id не пересекались с загруженными `cube-N`. */
+export function syncCubeIdCounter(cubes: readonly CubeData[]): void {
+  for (const cube of cubes) {
+    const match = /^cube-(\d+)$/.exec(cube.id)
+    if (match) {
+      nextCubeId = Math.max(nextCubeId, Number(match[1]))
+    }
+  }
+}
+

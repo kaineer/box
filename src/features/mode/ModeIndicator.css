@@ -1,0 +1,30 @@
+.mode-indicator {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 10;
+  padding: 6px 12px;
+  font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Menlo, monospace;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  border-radius: 4px;
+  pointer-events: none;
+  user-select: none;
+}
+
+.mode-indicator--norm {
+  color: #eceff4;
+  background: #4c566a;
+}
+
+.mode-indicator--insert {
+  color: #2e3440;
+  background: #a3be8c;
+}
+
+.mode-indicator--move {
+  color: #2e3440;
+  background: #88c0d0;
+}

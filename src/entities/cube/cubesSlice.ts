@@ -4,49 +4,105 @@ import { createCubeId, INITIAL_CUBES, type CubeData } from './model'
 
 export type CubesState = {
   items: CubeData[]
-  activeId: string
+  /** Последний элемент — primary (камера, операции). */
+  selectedIds: string[]
 }
 
 const initialState: CubesState = {
   items: INITIAL_CUBES,
-  activeId: INITIAL_CUBES[0].id,
+  selectedIds: [INITIAL_CUBES[0].id],
+}
+
+function primaryId(state: CubesState): string {
+  return state.selectedIds[state.selectedIds.length - 1] ?? state.items[0]?.id ?? ''
 }
 
 export const cubesSlice = createSlice({
   name: 'cubes',
   initialState,
   reducers: {
+    /** Клик без Shift — ровно один куб. */
     selectCube(state, action: PayloadAction<string>) {
       if (state.items.some((cube) => cube.id === action.payload)) {
-        state.activeId = action.payload
+        state.selectedIds = [action.payload]
       }
+    },
+    /** Shift+клик — добавить к выделению (или сделать primary). */
+    addCubeToSelection(state, action: PayloadAction<string>) {
+      const id = action.payload
+      if (!state.items.some((cube) => cube.id === id)) return
+
+      state.selectedIds = [
+        ...state.selectedIds.filter((selectedId) => selectedId !== id),
+        id,
+      ]
     },
     addCube(state, action: PayloadAction<{ position: [number, number, number] }>) {
       const id = createCubeId()
       state.items.push({ id, position: action.payload.position })
-      state.activeId = id
+      state.selectedIds = [id]
     },
     removeActiveCube(state) {
       if (state.items.length <= 1) return
 
-      const current = state.items.find((cube) => cube.id === state.activeId)
-      if (!current) return
+      const removing = new Set(state.selectedIds)
+      if (removing.size === 0) return
 
-      const remaining = state.items.filter((cube) => cube.id !== state.activeId)
-      const nextId = findClosest(remaining, current.position)
+      // Нельзя удалить все кубы со сцены
+      if (removing.size >= state.items.length) return
+
+      const anchorId = primaryId(state)
+      const anchor =
+        state.items.find((cube) => cube.id === anchorId) ?? state.items[0]
+      if (!anchor) return
+
+      const remaining = state.items.filter((cube) => !removing.has(cube.id))
+      const nextId = findClosest(remaining, anchor.position)
       if (!nextId) return
 
       state.items = remaining
-      state.activeId = nextId
+      state.selectedIds = [nextId]
+    },
+    setCubesState(
+      state,
+      action: PayloadAction<{
+        items: CubeData[]
+        selectedIds?: string[]
+        /** @deprecated для загрузки YAML — станет единственным selected */
+        activeId?: string
+      }>,
+    ) {
+      state.items = action.payload.items
+
+      if (action.payload.selectedIds) {
+        const valid = action.payload.selectedIds.filter((id) =>
+          state.items.some((cube) => cube.id === id),
+        )
+        state.selectedIds =
+          valid.length > 0
+            ? valid
+            : state.items[0]
+              ? [state.items[0].id]
+              : []
+        return
+      }
+
+      const activeId = action.payload.activeId
+      state.selectedIds =
+        activeId && state.items.some((cube) => cube.id === activeId)
+          ? [activeId]
+          : state.items[0]
+            ? [state.items[0].id]
+            : []
     },
   },
   selectors: {
     selectCubes: (state) => state.items,
-    selectActiveId: (state) => state.activeId,
+    selectSelectedIds: (state) => state.selectedIds,
+    selectActiveId: (state) => primaryId(state),
     selectActiveCube: (state) =>
-      state.items.find((cube) => cube.id === state.activeId) ?? state.items[0],
+      state.items.find((cube) => cube.id === primaryId(state)) ?? state.items[0],
   },
 })
-
 
 export default cubesSlice.reducer
