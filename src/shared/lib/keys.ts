@@ -32,6 +32,10 @@ export function isReadCode(code: string): boolean {
   return code === 'KeyR'
 }
 
+export function isGroupCode(code: string): boolean {
+  return code === 'KeyG'
+}
+
 export function isEscapeCode(code: string): boolean {
   return code === 'Escape'
 }

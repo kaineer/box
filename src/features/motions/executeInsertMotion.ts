@@ -1,6 +1,8 @@
 import type { Camera } from 'three'
 import type { CubeData } from '../../entities/cube/model'
 import { createCubeId } from '../../entities/cube/model'
+import type { GroupData } from '../../entities/group/model'
+import { flattenWorldCubes } from '../../entities/group/worldCubes'
 import { CUBE_STEP, NEIGHBOR_OPTIONS } from '../../shared/config/constants'
 import { adjacentPosition } from '../../shared/lib/adjacent-position'
 import { findNeighbor } from '../../shared/lib/find-neighbor'
@@ -13,6 +15,7 @@ export const MAX_INSERT_MOTION_COUNT = 100
 type ExecuteInsertMotionParams = {
   camera: Camera
   items: CubeData[]
+  groups?: GroupData[]
   selectedIds: string[]
   moveKey: MoveKey
   count: number
@@ -26,6 +29,7 @@ type ExecuteInsertMotionParams = {
 export function executeInsertMotion({
   camera,
   items,
+  groups = [],
   selectedIds,
   moveKey,
   count,
@@ -42,20 +46,25 @@ export function executeInsertMotion({
 
     const resultingIds: string[] = []
     const claimedPositions = new Set<string>()
+    const world = flattenWorldCubes(nextItems, groups)
 
     const positionKey = (position: readonly [number, number, number]) =>
       `${position[0]},${position[1]},${position[2]}`
 
     for (const selectedId of nextSelectedIds) {
       const neighborId = findNeighbor(
-        nextItems,
+        world,
         selectedId,
         direction,
         NEIGHBOR_OPTIONS,
       )
 
       if (neighborId) {
-        if (!resultingIds.includes(neighborId)) {
+        // Сосед внутри группы — не выделяем (группы не редактируются поштучно)
+        if (
+          nextItems.some((item) => item.id === neighborId) &&
+          !resultingIds.includes(neighborId)
+        ) {
           resultingIds.push(neighborId)
         }
         continue
@@ -68,7 +77,7 @@ export function executeInsertMotion({
       const key = positionKey(position)
       if (claimedPositions.has(key)) continue
 
-      const occupied = nextItems.some(
+      const occupied = world.some(
         (item) =>
           item.position[0] === position[0] &&
           item.position[1] === position[1] &&

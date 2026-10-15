@@ -16,6 +16,7 @@ import {
 import {
   isDeleteCode,
   isEscapeCode,
+  isGroupCode,
   isInsertModeCode,
   isMoveModeCode,
   isReadCode,
@@ -26,9 +27,11 @@ import {
   type MoveKey,
 } from '../shared/lib/keys'
 
-const { selectCubes, selectActiveId, selectSelectedIds } = cubesSlice.selectors
-const { selectCube, removeActiveCube, setCubesState } = cubesSlice.actions
-const { setMode, toggleModeMenu } = uiSlice.actions
+const { selectCubes, selectGroups, selectActiveId, selectSelectedIds } =
+  cubesSlice.selectors
+const { selectCube, removeActiveCube, setCubesState, createGroupFromSelection } =
+  cubesSlice.actions
+const { setMode, toggleModeMenu, closeModeMenu } = uiSlice.actions
 
 type UseSceneKeyboardParams = {
   camera: Camera
@@ -43,6 +46,9 @@ export function useSceneKeyboard({
 }: UseSceneKeyboardParams) {
   const dispatch = useDispatch()
   const cubes = useSelector((state: { cubes: CubesState }) => selectCubes(state))
+  const groups = useSelector((state: { cubes: CubesState }) =>
+    selectGroups(state),
+  )
   const activeId = useSelector((state: { cubes: CubesState }) =>
     selectActiveId(state),
   )
@@ -51,9 +57,11 @@ export function useSceneKeyboard({
   )
 
   const cubesRef = useRef(cubes)
+  const groupsRef = useRef(groups)
   const activeIdRef = useRef(activeId)
   const selectedIdsRef = useRef(selectedIds)
   cubesRef.current = cubes
+  groupsRef.current = groups
   activeIdRef.current = activeId
   selectedIdsRef.current = selectedIds
 
@@ -65,6 +73,7 @@ export function useSceneKeyboard({
         const next = executeInsertMotion({
           camera,
           items: cubesRef.current,
+          groups: groupsRef.current,
           selectedIds: selectedIdsRef.current,
           moveKey: motion,
           count,
@@ -73,7 +82,13 @@ export function useSceneKeyboard({
         selectedIdsRef.current = next.selectedIds
         activeIdRef.current =
           next.selectedIds[next.selectedIds.length - 1] ?? activeIdRef.current
-        dispatch(setCubesState(next))
+        dispatch(
+          setCubesState({
+            items: next.items,
+            groups: groupsRef.current,
+            selectedIds: next.selectedIds,
+          }),
+        )
       },
     })
 
@@ -81,6 +96,11 @@ export function useSceneKeyboard({
       parseCountDigit: countDigitFromCode,
       parseMotion: moveKeyFromCode,
       onMotion: ({ count, motion }) => {
+        if (
+          !cubesRef.current.some((cube) => cube.id === activeIdRef.current)
+        ) {
+          return
+        }
         const nextId = executeNavigateMotion({
           camera,
           items: cubesRef.current,
@@ -101,11 +121,13 @@ export function useSceneKeyboard({
         const next = executeMoveMotion({
           camera,
           items: cubesRef.current,
+          groups: groupsRef.current,
           selectedIds: selectedIdsRef.current,
           moveKey: motion,
           count,
         })
         cubesRef.current = next.items
+        groupsRef.current = next.groups
         selectedIdsRef.current = next.selectedIds
         activeIdRef.current =
           next.selectedIds[next.selectedIds.length - 1] ?? activeIdRef.current
@@ -213,6 +235,19 @@ export function useSceneKeyboard({
         event.preventDefault()
         resetMotions()
         void runReadCubesAction(dispatch)
+        return
+      }
+
+      if (isGroupCode(event.code)) {
+        if (event.repeat || event.shiftKey || event.ctrlKey || event.metaKey) {
+          return
+        }
+        event.preventDefault()
+        resetMotions()
+        dispatch(createGroupFromSelection())
+        if (modeMenuOpenRef.current) {
+          dispatch(closeModeMenu())
+        }
         return
       }
 

@@ -7,13 +7,16 @@ import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { Cube } from "../entities/cube/Cube";
 import { cubesSlice, type CubesState } from "../entities/cube/cubesSlice";
 import { INITIAL_CUBES } from "../entities/cube/model";
+import { worldPositionOfGroupCube } from "../entities/group/model";
+import { groupCentroid } from "../entities/group/worldCubes";
 import { uiSlice, type UiState } from "../entities/ui/uiSlice";
 import { ModeMenuTracker } from "../features/mode/ModeMenuTracker";
 import { SelectionMarquee } from "../features/selection/SelectionMarquee";
 import { CAMERA_POLAR, TARGET_LERP } from "../shared/config/constants";
 import { useSceneKeyboard } from "./useSceneKeyboard";
 
-const { selectCubes, selectActiveId, selectSelectedIds } = cubesSlice.selectors;
+const { selectCubes, selectGroups, selectActiveId, selectSelectedIds } =
+  cubesSlice.selectors;
 const { selectCube, addCubeToSelection } = cubesSlice.actions;
 const { selectMode, selectModeMenuOpen } = uiSlice.selectors;
 
@@ -22,6 +25,9 @@ export function Scene() {
   const dispatch = useDispatch();
   const cubes = useSelector((state: { cubes: CubesState }) =>
     selectCubes(state),
+  );
+  const groups = useSelector((state: { cubes: CubesState }) =>
+    selectGroups(state),
   );
   const activeId = useSelector((state: { cubes: CubesState }) =>
     selectActiveId(state),
@@ -46,23 +52,48 @@ export function Scene() {
 
   const activeCube =
     cubes.find((item) => item.id === activeId) ?? cubes[0] ?? INITIAL_CUBES[0];
+  const activeGroup = groups.find((group) => group.id === activeId);
+  const menuAnchor = activeGroup
+    ? groupCentroid(activeGroup)
+    : activeCube.position;
 
   useEffect(() => {
-    const selected = cubes.filter((cube) => selectedIds.includes(cube.id));
-    const targets = selected.length > 0 ? selected : [activeCube];
+    const positions: [number, number, number][] = [];
+
+    for (const id of selectedIds) {
+      const cube = cubes.find((item) => item.id === id);
+      if (cube) {
+        positions.push(cube.position);
+        continue;
+      }
+      const group = groups.find((item) => item.id === id);
+      if (group) {
+        for (const member of group.cubes) {
+          positions.push(worldPositionOfGroupCube(group, member));
+        }
+      }
+    }
+
+    const targets =
+      positions.length > 0
+        ? positions
+        : activeGroup
+          ? activeGroup.cubes.map((member) =>
+              worldPositionOfGroupCube(activeGroup, member),
+            )
+          : [activeCube.position];
+
     const count = targets.length;
     let x = 0,
       y = 0,
       z = 0;
-    for (const {
-      position: [dx, dy, dz],
-    } of targets) {
+    for (const [dx, dy, dz] of targets) {
       x += dx;
       y += dy;
       z += dz;
     }
     desiredTarget.current.set(x / count, y / count, z / count);
-  }, [activeCube, cubes, selectedIds]);
+  }, [activeCube, activeGroup, cubes, groups, selectedIds]);
 
   useSceneKeyboard({
     camera,
@@ -93,7 +124,24 @@ export function Scene() {
           }
         />
       ))}
-      <ModeMenuTracker position={activeCube.position} />
+      {groups.map((group) =>
+        group.cubes.map((cube) => (
+          <Cube
+            key={cube.id}
+            id={cube.id}
+            selectionId={group.id}
+            position={worldPositionOfGroupCube(group, cube)}
+            onSelect={(additive) =>
+              dispatch(
+                additive
+                  ? addCubeToSelection(group.id)
+                  : selectCube(group.id),
+              )
+            }
+          />
+        )),
+      )}
+      <ModeMenuTracker position={menuAnchor} />
       <SelectionMarquee />
       <OrbitControls
         ref={controlsRef}

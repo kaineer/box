@@ -9,13 +9,15 @@ const { selectIsInsertMode } = uiSlice.selectors
 
 type CubeProps = {
   id: string
+  /** Id сущности в selection (куб или группа). По умолчанию = id. */
+  selectionId?: string
   position: readonly [number, number, number]
   onSelect: (additive: boolean) => void
 }
 
-export function Cube({ id, position, onSelect }: CubeProps) {
+export function Cube({ id, selectionId = id, position, onSelect }: CubeProps) {
   const selected = useSelector((state: { cubes: CubesState }) =>
-    selectIsSelected(state, id),
+    selectIsSelected(state, selectionId),
   )
   const insertMode = useSelector((state: { ui: UiState }) =>
     selectIsInsertMode(state),

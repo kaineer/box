@@ -2,6 +2,7 @@ import { useThree } from '@react-three/fiber'
 import { useEffect, useRef, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { cubesSlice, type CubesState } from '../../entities/cube/cubesSlice'
+import { worldPositionOfGroupCube } from '../../entities/group/model'
 import { uiSlice, type UiState } from '../../entities/ui/uiSlice'
 import { CUBE_SIZE } from '../../shared/config/constants'
 import {
@@ -11,7 +12,7 @@ import {
 } from '../../shared/lib/screen-bounds'
 import styles from './SelectionMarquee.module.css'
 
-const { selectCubes } = cubesSlice.selectors
+const { selectCubes, selectGroups } = cubesSlice.selectors
 const { setSelection } = cubesSlice.actions
 const { selectMode } = uiSlice.selectors
 
@@ -28,6 +29,9 @@ export function SelectionMarquee() {
   const dispatch = useDispatch()
   const mode = useSelector((state: { ui: UiState }) => selectMode(state))
   const cubes = useSelector((state: { cubes: CubesState }) => selectCubes(state))
+  const groups = useSelector((state: { cubes: CubesState }) =>
+    selectGroups(state),
+  )
   const [drag, setDrag] = useState<DragRect | null>(null)
   const overlayRef = useRef<HTMLDivElement | null>(null)
 
@@ -107,14 +111,36 @@ export function SelectionMarquee() {
         const width = canvas.clientWidth
         const height = canvas.clientHeight
 
-        const hitIds = cubes
-          .filter((cube) =>
+        const hitIds: string[] = []
+
+        for (const cube of cubes) {
+          if (
             screenRectsIntersect(
               rect,
               cubeScreenBounds(cube.position, CUBE_SIZE, camera, width, height),
+            )
+          ) {
+            hitIds.push(cube.id)
+          }
+        }
+
+        for (const group of groups) {
+          const hit = group.cubes.some((cube) =>
+            screenRectsIntersect(
+              rect,
+              cubeScreenBounds(
+                worldPositionOfGroupCube(group, cube),
+                CUBE_SIZE,
+                camera,
+                width,
+                height,
+              ),
             ),
           )
-          .map((cube) => cube.id)
+          if (hit && !hitIds.includes(group.id)) {
+            hitIds.push(group.id)
+          }
+        }
 
         if (hitIds.length > 0) {
           dispatch(setSelection(hitIds))
@@ -134,7 +160,7 @@ export function SelectionMarquee() {
       canvas.removeEventListener('pointerup', onPointerUp)
       canvas.removeEventListener('pointercancel', onPointerUp)
     }
-  }, [camera, cubes, dispatch, gl, mode])
+  }, [camera, cubes, dispatch, gl, groups, mode])
 
   return null
 }

@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { cubesSlice, type CubesState } from '../../entities/cube/cubesSlice'
 import { uiSlice, type UiState } from '../../entities/ui/uiSlice'
@@ -15,7 +15,7 @@ import {
 } from '../io/cubeIoActions'
 import {
   menuItemHotkey,
-  MODE_MENU_ITEMS,
+  visibleModeMenuItems,
   type ModeMenuItem,
 } from './menuItems'
 import styles from './ModeMenu.module.css'
@@ -24,14 +24,17 @@ import {
   subscribeModeMenuScreen,
 } from './modeMenuScreen'
 
-const { selectCubes, selectActiveId } = cubesSlice.selectors
+const { selectCubes, selectActiveId, selectCanCreateGroup } =
+  cubesSlice.selectors
+const { createGroupFromSelection } = cubesSlice.actions
 const { selectMode, selectModeMenuOpen } = uiSlice.selectors
-const { setMode } = uiSlice.actions
+const { setMode, closeModeMenu } = uiSlice.actions
 
-function currentModeItemIndex(mode: EditorMode): number {
-  return MODE_MENU_ITEMS.findIndex(
-    (item) => item.kind === 'mode' && item.id === mode,
-  )
+function currentModeItemIndex(
+  items: ModeMenuItem[],
+  mode: EditorMode,
+): number {
+  return items.findIndex((item) => item.kind === 'mode' && item.id === mode)
 }
 
 export function ModeMenu() {
@@ -42,20 +45,33 @@ export function ModeMenu() {
   const activeId = useSelector((state: { cubes: CubesState }) =>
     selectActiveId(state),
   )
+  const canCreateGroup = useSelector((state: { cubes: CubesState }) =>
+    selectCanCreateGroup(state),
+  )
+  const menuItems = useMemo(
+    () => visibleModeMenuItems(canCreateGroup),
+    [canCreateGroup],
+  )
   const screen = useSyncExternalStore(
     subscribeModeMenuScreen,
     getModeMenuScreen,
     getModeMenuScreen,
   )
   const [highlight, setHighlight] = useState(() =>
-    Math.max(0, currentModeItemIndex(mode)),
+    Math.max(0, currentModeItemIndex(menuItems, mode)),
   )
 
   useEffect(() => {
     if (open) {
-      setHighlight(Math.max(0, currentModeItemIndex(mode)))
+      setHighlight(Math.max(0, currentModeItemIndex(menuItems, mode)))
     }
-  }, [open, mode])
+  }, [open, mode, menuItems])
+
+  useEffect(() => {
+    setHighlight((index) =>
+      menuItems.length === 0 ? 0 : Math.min(index, menuItems.length - 1),
+    )
+  }, [menuItems])
 
   const runItem = useCallback(
     async (item: ModeMenuItem) => {
@@ -69,7 +85,13 @@ export function ModeMenu() {
         return
       }
 
-      await runReadCubesAction(dispatch)
+      if (item.id === 'read') {
+        await runReadCubesAction(dispatch)
+        return
+      }
+
+      dispatch(createGroupFromSelection())
+      dispatch(closeModeMenu())
     },
     [activeId, cubes, dispatch],
   )
@@ -81,28 +103,27 @@ export function ModeMenu() {
       if (isMenuUpCode(event.code)) {
         event.preventDefault()
         setHighlight(
-          (index) =>
-            (index - 1 + MODE_MENU_ITEMS.length) % MODE_MENU_ITEMS.length,
+          (index) => (index - 1 + menuItems.length) % menuItems.length,
         )
         return
       }
 
       if (isMenuDownCode(event.code)) {
         event.preventDefault()
-        setHighlight((index) => (index + 1) % MODE_MENU_ITEMS.length)
+        setHighlight((index) => (index + 1) % menuItems.length)
         return
       }
 
       if (isMenuConfirmCode(event.code)) {
         event.preventDefault()
-        const selected = MODE_MENU_ITEMS[highlight]
+        const selected = menuItems[highlight]
         if (selected) void runItem(selected)
       }
     }
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [highlight, open, runItem])
+  }, [highlight, menuItems, open, runItem])
 
   if (!open || !screen.visible) return null
 
@@ -114,13 +135,13 @@ export function ModeMenu() {
       }}
     >
       <div className={styles.menu} role="menu" aria-label="Modes">
-        {MODE_MENU_ITEMS.map((item, index) => {
+        {menuItems.map((item, index) => {
           const hotkey = menuItemHotkey(item, mode)
           const isCurrent = item.kind === 'mode' && item.id === mode
           const isHighlighted = index === highlight
           const isAction = item.kind === 'action'
           const isFirstAction =
-            isAction && MODE_MENU_ITEMS[index - 1]?.kind !== 'action'
+            isAction && menuItems[index - 1]?.kind !== 'action'
 
           return (
             <button

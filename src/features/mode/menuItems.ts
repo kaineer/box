@@ -5,6 +5,8 @@ import {
   type EditorMode,
 } from '../../shared/config/editor-mode'
 
+export type ModeMenuActionId = 'write' | 'read' | 'group'
+
 export type ModeMenuItem =
   | {
       kind: 'mode'
@@ -13,7 +15,7 @@ export type ModeMenuItem =
     }
   | {
       kind: 'action'
-      id: 'write' | 'read'
+      id: ModeMenuActionId
       label: string
     }
 
@@ -27,11 +29,20 @@ export const MODE_MENU_ITEMS: ModeMenuItem[] = [
   ),
   { kind: 'action', id: 'write', label: 'WRITE' },
   { kind: 'action', id: 'read', label: 'READ' },
+  { kind: 'action', id: 'group', label: 'GROUP' },
 ]
 
-const ACTION_HOTKEYS: Record<'write' | 'read', string> = {
+const ACTION_HOTKEYS: Record<ModeMenuActionId, string> = {
   write: 'W',
   read: 'R',
+  group: 'G',
+}
+
+/** Пункты меню с учётом контекста (GROUP — только при multi-select свободных кубов). */
+export function visibleModeMenuItems(canCreateGroup: boolean): ModeMenuItem[] {
+  return MODE_MENU_ITEMS.filter(
+    (item) => item.kind !== 'action' || item.id !== 'group' || canCreateGroup,
+  )
 }
 
 export function menuItemHotkey(
