@@ -31,6 +31,7 @@ export const uiSlice = createSlice({
   },
   selectors: {
     selectMode: (state) => state.mode,
+    selectIsInsertMode: (state) => state.mode === 'insert',
     selectModeMenuOpen: (state) => state.modeMenuOpen,
   },
 })

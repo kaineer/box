@@ -107,10 +107,9 @@ export const cubesSlice = createSlice({
   selectors: {
     selectCubes: (state) => state.items,
     selectSelectedIds: (state) => state.selectedIds,
+    selectIsSelected: (state, id: string) => state.selectedIds.includes(id),
     selectActiveId: (state) => primaryId(state),
     selectActiveCube: (state) =>
       state.items.find((cube) => cube.id === primaryId(state)) ?? state.items[0],
   },
 })
-
-export default cubesSlice.reducer

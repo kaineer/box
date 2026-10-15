@@ -1,14 +1,25 @@
 import { Outlines } from '@react-three/drei'
+import { useSelector } from 'react-redux'
 import { CUBE_SIZE } from '../../shared/config/constants'
+import { cubesSlice, type CubesState } from './cubesSlice'
+import { uiSlice, type UiState } from '../ui/uiSlice'
+
+const { selectIsSelected } = cubesSlice.selectors
+const { selectIsInsertMode } = uiSlice.selectors
 
 type CubeProps = {
-  selected: boolean
-  insertMode: boolean
+  id: string
   position: readonly [number, number, number]
   onSelect: (additive: boolean) => void
 }
 
-export function Cube({ selected, insertMode, position, onSelect }: CubeProps) {
+export function Cube({ id, position, onSelect }: CubeProps) {
+  const selected = useSelector((state: { cubes: CubesState }) =>
+    selectIsSelected(state, id),
+  )
+  const insertMode = useSelector((state: { ui: UiState }) =>
+    selectIsInsertMode(state),
+  )
   const outlineColor = insertMode ? '#a3be8c' : '#5e81ac'
   const emissive = selected ? outlineColor : '#000000'
 

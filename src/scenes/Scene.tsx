@@ -39,6 +39,8 @@ export function Scene() {
   const controlsRef = useRef<OrbitControlsImpl>(null);
   const desiredTarget = useRef(new Vector3(...INITIAL_CUBES[0].position));
 
+  const selecting = mode === "select";
+
   modeRef.current = mode;
   modeMenuOpenRef.current = modeMenuOpen;
 
@@ -82,8 +84,7 @@ export function Scene() {
       {cubes.map((cube) => (
         <Cube
           key={cube.id}
-          selected={selectedIds.includes(cube.id)}
-          insertMode={mode === "insert"}
+          id={cube.id}
           position={cube.position}
           onSelect={(additive) =>
             dispatch(
@@ -97,8 +98,8 @@ export function Scene() {
       <OrbitControls
         ref={controlsRef}
         enableDamping
-        enableRotate={mode !== "select"}
-        enablePan={mode !== "select"}
+        enableRotate={!selecting}
+        enablePan={!selecting}
         target={[...INITIAL_CUBES[0].position]}
         minPolarAngle={CAMERA_POLAR}
         maxPolarAngle={CAMERA_POLAR}
