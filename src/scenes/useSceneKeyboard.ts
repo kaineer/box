@@ -87,13 +87,13 @@ export function useSceneKeyboard({
       onMotion: ({ count, motion }) => {
         const next = executeInsertMotion({
           camera,
-          items: cubesRef.current,
+          cubes: cubesRef.current,
           groups: groupsRef.current,
           selectedIds: selectedIdsRef.current,
           moveKey: motion,
           count,
         })
-        cubesRef.current = next.items
+        cubesRef.current = next.cubes
         groupsRef.current = next.groups
         selectedIdsRef.current = next.selectedIds
         activeIdRef.current =
@@ -113,7 +113,7 @@ export function useSceneKeyboard({
         }
         const nextId = executeNavigateMotion({
           camera,
-          items: cubesRef.current,
+          cubes: cubesRef.current,
           activeId: activeIdRef.current,
           moveKey: motion,
           count,
@@ -130,13 +130,13 @@ export function useSceneKeyboard({
       onMotion: ({ count, motion }) => {
         const next = executeMoveMotion({
           camera,
-          items: cubesRef.current,
+          cubes: cubesRef.current,
           groups: groupsRef.current,
           selectedIds: selectedIdsRef.current,
           moveKey: motion,
           count,
         })
-        cubesRef.current = next.items
+        cubesRef.current = next.cubes
         groupsRef.current = next.groups
         selectedIdsRef.current = next.selectedIds
         activeIdRef.current =

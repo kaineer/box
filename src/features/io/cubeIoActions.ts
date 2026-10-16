@@ -23,7 +23,7 @@ export async function runReadCubesAction(dispatch: Dispatch): Promise<void> {
     syncCubeIdCounter(document.cubes)
     dispatch(
       setCubesState({
-        items: document.cubes,
+        cubes: document.cubes,
         activeId: document.activeId,
       }),
     )

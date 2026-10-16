@@ -18,7 +18,7 @@ export const MAX_INSERT_MOTION_COUNT = 100
 
 type ExecuteInsertMotionParams = {
   camera: Camera
-  items: CubeData[]
+  cubes: CubeData[]
   groups?: GroupData[]
   selectedIds: string[]
   moveKey: MoveKey
@@ -26,7 +26,7 @@ type ExecuteInsertMotionParams = {
 }
 
 type InsertMotionResult = {
-  items: CubeData[]
+  cubes: CubeData[]
   groups: GroupData[]
   selectedIds: string[]
 }
@@ -36,14 +36,14 @@ function positionKey(position: readonly [number, number, number]): string {
 }
 
 function selectionFootprint(
-  items: readonly CubeData[],
+  cubes: readonly CubeData[],
   groups: readonly GroupData[],
   selectedIds: readonly string[],
 ): [number, number, number][] {
   const selected = new Set(selectedIds)
   const footprint: [number, number, number][] = []
 
-  for (const cube of items) {
+  for (const cube of cubes) {
     if (selected.has(cube.id)) {
       footprint.push([...cube.position] as [number, number, number])
     }
@@ -81,11 +81,11 @@ function stampOffsetSteps(
 }
 
 function occupiedKeys(
-  items: readonly CubeData[],
+  cubes: readonly CubeData[],
   groups: readonly GroupData[],
 ): Set<string> {
   return new Set(
-    flattenWorldCubes(items, groups).map((cube) => positionKey(cube.position)),
+    flattenWorldCubes(cubes, groups).map((cube) => positionKey(cube.position)),
   )
 }
 
@@ -95,7 +95,7 @@ function occupiedKeys(
  */
 export function executeInsertMotion({
   camera,
-  items,
+  cubes,
   groups = [],
   selectedIds,
   moveKey,
@@ -110,7 +110,7 @@ export function executeInsertMotion({
 
   if (hasSelectedGroup) {
     return stampInsertSelection({
-      items,
+      cubes,
       groups,
       selectedIds,
       direction,
@@ -119,7 +119,7 @@ export function executeInsertMotion({
   }
 
   return insertFreeCubes({
-    items,
+    cubes,
     groups,
     selectedIds,
     direction,
@@ -128,23 +128,23 @@ export function executeInsertMotion({
 }
 
 function stampInsertSelection({
-  items,
+  cubes,
   groups,
   selectedIds,
   direction,
   steps,
 }: {
-  items: CubeData[]
+  cubes: CubeData[]
   groups: GroupData[]
   selectedIds: string[]
   direction: ReturnType<typeof snapCardinal>
   steps: number
 }): InsertMotionResult {
-  let nextItems = items
+  let nextCubes = cubes
   let nextGroups = groups
   let nextSelectedIds = selectedIds.filter(
     (id) =>
-      nextItems.some((item) => item.id === id) ||
+      nextCubes.some((item) => item.id === id) ||
       nextGroups.some((group) => group.id === id),
   )
 
@@ -152,7 +152,7 @@ function stampInsertSelection({
     if (nextSelectedIds.length === 0) break
 
     const footprint = selectionFootprint(
-      nextItems,
+      nextCubes,
       nextGroups,
       nextSelectedIds,
     )
@@ -165,7 +165,7 @@ function stampInsertSelection({
       direction.z * offsetSteps * CUBE_STEP,
     ]
 
-    const occupied = occupiedKeys(nextItems, nextGroups)
+    const occupied = occupiedKeys(nextCubes, nextGroups)
     const targetFree = footprint.every((position) => {
       const key = positionKey([
         position[0] + delta[0],
@@ -177,14 +177,14 @@ function stampInsertSelection({
     if (!targetFree) break
 
     const resultingIds: string[] = []
-    const addedItems: CubeData[] = []
+    const addedCubes: CubeData[] = []
     const addedGroups: GroupData[] = []
 
     for (const selectedId of nextSelectedIds) {
-      const cube = nextItems.find((item) => item.id === selectedId)
+      const cube = nextCubes.find((item) => item.id === selectedId)
       if (cube) {
         const id = createCubeId()
-        addedItems.push({
+        addedCubes.push({
           id,
           position: [
             cube.position[0] + delta[0],
@@ -217,13 +217,13 @@ function stampInsertSelection({
 
     if (resultingIds.length === 0) break
 
-    nextItems = [...nextItems, ...addedItems]
+    nextCubes = [...nextCubes, ...addedCubes]
     nextGroups = [...nextGroups, ...addedGroups]
     nextSelectedIds = resultingIds
   }
 
   return {
-    items: nextItems,
+    cubes: nextCubes,
     groups: nextGroups,
     selectedIds: nextSelectedIds,
   }
@@ -235,21 +235,21 @@ function stampInsertSelection({
  * - занято → выделить соседа, текущий куб теряет выделение.
  */
 function insertFreeCubes({
-  items,
+  cubes,
   groups,
   selectedIds,
   direction,
   steps,
 }: {
-  items: CubeData[]
+  cubes: CubeData[]
   groups: GroupData[]
   selectedIds: string[]
   direction: ReturnType<typeof snapCardinal>
   steps: number
 }): InsertMotionResult {
-  let nextItems = items
+  let nextCubes = cubes
   let nextSelectedIds = selectedIds.filter((id) =>
-    nextItems.some((item) => item.id === id),
+    nextCubes.some((item) => item.id === id),
   )
 
   for (let step = 0; step < steps; step += 1) {
@@ -257,7 +257,7 @@ function insertFreeCubes({
 
     const resultingIds: string[] = []
     const claimedPositions = new Set<string>()
-    const world = flattenWorldCubes(nextItems, groups)
+    const world = flattenWorldCubes(nextCubes, groups)
 
     for (const selectedId of nextSelectedIds) {
       const neighborId = findNeighbor(
@@ -270,7 +270,7 @@ function insertFreeCubes({
       if (neighborId) {
         // Сосед внутри группы — не выделяем (группы не редактируются поштучно)
         if (
-          nextItems.some((item) => item.id === neighborId) &&
+          nextCubes.some((item) => item.id === neighborId) &&
           !resultingIds.includes(neighborId)
         ) {
           resultingIds.push(neighborId)
@@ -278,7 +278,7 @@ function insertFreeCubes({
         continue
       }
 
-      const current = nextItems.find((item) => item.id === selectedId)
+      const current = nextCubes.find((item) => item.id === selectedId)
       if (!current) continue
 
       const position = adjacentPosition(current.position, direction, CUBE_STEP)
@@ -294,7 +294,7 @@ function insertFreeCubes({
       if (occupied) continue
 
       const id = createCubeId()
-      nextItems = [...nextItems, { id, position }]
+      nextCubes = [...nextCubes, { id, position }]
       claimedPositions.add(key)
       resultingIds.push(id)
     }
@@ -303,5 +303,5 @@ function insertFreeCubes({
     nextSelectedIds = resultingIds
   }
 
-  return { items: nextItems, groups, selectedIds: nextSelectedIds }
+  return { cubes: nextCubes, groups, selectedIds: nextSelectedIds }
 }

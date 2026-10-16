@@ -19,7 +19,7 @@ type WorldCell = {
 
 type ExecuteMoveMotionParams = {
   camera: Camera
-  items: CubeData[]
+  cubes: CubeData[]
   groups: GroupData[]
   selectedIds: string[]
   moveKey: MoveKey
@@ -27,10 +27,10 @@ type ExecuteMoveMotionParams = {
 }
 
 function buildWorldCells(
-  items: readonly CubeData[],
+  cubes: readonly CubeData[],
   groups: readonly GroupData[],
 ): WorldCell[] {
-  const cells: WorldCell[] = items.map((cube) => ({
+  const cells: WorldCell[] = cubes.map((cube) => ({
     id: cube.id,
     position: [...cube.position] as [number, number, number],
     ownerId: cube.id,
@@ -85,22 +85,22 @@ function ownerCanMove(
  */
 export function executeMoveMotion({
   camera,
-  items,
+  cubes,
   groups,
   selectedIds,
   moveKey,
   count,
 }: ExecuteMoveMotionParams): {
-  items: CubeData[]
+  cubes: CubeData[]
   groups: GroupData[]
   selectedIds: string[]
 } {
   const direction = snapCardinal(getNavDirection(camera, moveKey))
-  let nextItems = items
+  let nextCubes = cubes
   let nextGroups = groups
   let nextSelectedIds = selectedIds.filter(
     (id) =>
-      nextItems.some((item) => item.id === id) ||
+      nextCubes.some((item) => item.id === id) ||
       nextGroups.some((group) => group.id === id),
   )
   const steps = Math.min(Math.max(1, count), MAX_MOVE_MOTION_COUNT)
@@ -109,7 +109,7 @@ export function executeMoveMotion({
     if (nextSelectedIds.length === 0) break
 
     const selectedSet = new Set(nextSelectedIds)
-    const world = buildWorldCells(nextItems, nextGroups)
+    const world = buildWorldCells(nextCubes, nextGroups)
     const movers: string[] = []
 
     for (const selectedId of nextSelectedIds) {
@@ -125,7 +125,7 @@ export function executeMoveMotion({
 
     const moverSet = new Set(movers)
 
-    nextItems = nextItems.map((item) => {
+    nextCubes = nextCubes.map((item) => {
       if (!moverSet.has(item.id)) return item
       return {
         ...item,
@@ -145,7 +145,7 @@ export function executeMoveMotion({
   }
 
   return {
-    items: nextItems,
+    cubes: nextCubes,
     groups: nextGroups,
     selectedIds: nextSelectedIds,
   }

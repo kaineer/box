@@ -10,7 +10,7 @@ export const MAX_NAVIGATE_MOTION_COUNT = 100
 
 type ExecuteNavigateMotionParams = {
   camera: Camera
-  items: CubeData[]
+  cubes: CubeData[]
   activeId: string
   moveKey: MoveKey
   count: number
@@ -22,7 +22,7 @@ type ExecuteNavigateMotionParams = {
  */
 export function executeNavigateMotion({
   camera,
-  items,
+  cubes,
   activeId,
   moveKey,
   count,
@@ -33,7 +33,7 @@ export function executeNavigateMotion({
 
   for (let i = 0; i < steps; i += 1) {
     const neighborId = findNeighbor(
-      items,
+      cubes,
       nextActiveId,
       direction,
       NEIGHBOR_OPTIONS,
