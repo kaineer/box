@@ -27,10 +27,20 @@ import {
   type MoveKey,
 } from '../shared/lib/keys'
 
-const { selectCubes, selectGroups, selectActiveId, selectSelectedIds } =
-  cubesSlice.selectors
-const { selectCube, removeActiveCube, setCubesState, createGroupFromSelection } =
-  cubesSlice.actions
+const {
+  selectCubes,
+  selectGroups,
+  selectActiveId,
+  selectSelectedIds,
+  selectCanWrite,
+} = cubesSlice.selectors
+const {
+  selectCube,
+  removeActiveCube,
+  setCubesState,
+  createGroupFromSelection,
+  ungroupSelectedGroups,
+} = cubesSlice.actions
 const { setMode, toggleModeMenu, closeModeMenu } = uiSlice.actions
 
 type UseSceneKeyboardParams = {
@@ -55,15 +65,20 @@ export function useSceneKeyboard({
   const selectedIds = useSelector((state: { cubes: CubesState }) =>
     selectSelectedIds(state),
   )
+  const canWrite = useSelector((state: { cubes: CubesState }) =>
+    selectCanWrite(state),
+  )
 
   const cubesRef = useRef(cubes)
   const groupsRef = useRef(groups)
   const activeIdRef = useRef(activeId)
   const selectedIdsRef = useRef(selectedIds)
+  const canWriteRef = useRef(canWrite)
   cubesRef.current = cubes
   groupsRef.current = groups
   activeIdRef.current = activeId
   selectedIdsRef.current = selectedIds
+  canWriteRef.current = canWrite
 
   useEffect(() => {
     const insertMotions = createMotionBuffer<MoveKey>({
@@ -79,16 +94,11 @@ export function useSceneKeyboard({
           count,
         })
         cubesRef.current = next.items
+        groupsRef.current = next.groups
         selectedIdsRef.current = next.selectedIds
         activeIdRef.current =
           next.selectedIds[next.selectedIds.length - 1] ?? activeIdRef.current
-        dispatch(
-          setCubesState({
-            items: next.items,
-            groups: groupsRef.current,
-            selectedIds: next.selectedIds,
-          }),
-        )
+        dispatch(setCubesState(next))
       },
     })
 
@@ -215,7 +225,13 @@ export function useSceneKeyboard({
       }
 
       if (isWriteCode(event.code)) {
-        if (event.repeat || event.shiftKey || event.ctrlKey || event.metaKey) {
+        if (
+          event.repeat ||
+          event.shiftKey ||
+          event.ctrlKey ||
+          event.metaKey ||
+          !canWriteRef.current
+        ) {
           return
         }
         event.preventDefault()
@@ -239,12 +255,16 @@ export function useSceneKeyboard({
       }
 
       if (isGroupCode(event.code)) {
-        if (event.repeat || event.shiftKey || event.ctrlKey || event.metaKey) {
+        if (event.repeat || event.ctrlKey || event.metaKey) {
           return
         }
         event.preventDefault()
         resetMotions()
-        dispatch(createGroupFromSelection())
+        if (event.shiftKey) {
+          dispatch(ungroupSelectedGroups())
+        } else {
+          dispatch(createGroupFromSelection())
+        }
         if (modeMenuOpenRef.current) {
           dispatch(closeModeMenu())
         }

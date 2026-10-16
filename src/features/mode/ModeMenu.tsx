@@ -24,9 +24,14 @@ import {
   subscribeModeMenuScreen,
 } from './modeMenuScreen'
 
-const { selectCubes, selectActiveId, selectCanCreateGroup } =
-  cubesSlice.selectors
-const { createGroupFromSelection } = cubesSlice.actions
+const {
+  selectCubes,
+  selectActiveId,
+  selectCanCreateGroup,
+  selectCanUngroup,
+  selectCanWrite,
+} = cubesSlice.selectors
+const { createGroupFromSelection, ungroupSelectedGroups } = cubesSlice.actions
 const { selectMode, selectModeMenuOpen } = uiSlice.selectors
 const { setMode, closeModeMenu } = uiSlice.actions
 
@@ -48,9 +53,15 @@ export function ModeMenu() {
   const canCreateGroup = useSelector((state: { cubes: CubesState }) =>
     selectCanCreateGroup(state),
   )
+  const canUngroup = useSelector((state: { cubes: CubesState }) =>
+    selectCanUngroup(state),
+  )
+  const canWrite = useSelector((state: { cubes: CubesState }) =>
+    selectCanWrite(state),
+  )
   const menuItems = useMemo(
-    () => visibleModeMenuItems(canCreateGroup),
-    [canCreateGroup],
+    () => visibleModeMenuItems(canCreateGroup, canUngroup, canWrite),
+    [canCreateGroup, canUngroup, canWrite],
   )
   const screen = useSyncExternalStore(
     subscribeModeMenuScreen,
@@ -81,6 +92,7 @@ export function ModeMenu() {
       }
 
       if (item.id === 'write') {
+        if (!canWrite) return
         await runWriteCubesAction(dispatch, cubes, activeId)
         return
       }
@@ -90,10 +102,18 @@ export function ModeMenu() {
         return
       }
 
-      dispatch(createGroupFromSelection())
-      dispatch(closeModeMenu())
+      if (item.id === 'group') {
+        dispatch(createGroupFromSelection())
+        dispatch(closeModeMenu())
+        return
+      }
+
+      if (item.id === 'ungroup') {
+        dispatch(ungroupSelectedGroups())
+        dispatch(closeModeMenu())
+      }
     },
-    [activeId, cubes, dispatch],
+    [activeId, canWrite, cubes, dispatch],
   )
 
   useEffect(() => {

@@ -2,6 +2,7 @@ import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
 import {
   createGroupId,
   originFromCubes,
+  worldPositionOfGroupCube,
   type GroupData,
 } from '../group/model'
 import {
@@ -121,6 +122,34 @@ export const cubesSlice = createSlice({
       state.items = state.items.filter((cube) => !removing.has(cube.id))
       state.selectedIds = [groupId]
     },
+    /** Разгруппировать выделенные группы: кубы возвращаются в список. */
+    ungroupSelectedGroups(state) {
+      const selectedGroups = state.groups.filter((group) =>
+        state.selectedIds.includes(group.id),
+      )
+      if (selectedGroups.length === 0) return
+
+      const removingGroupIds = new Set(selectedGroups.map((group) => group.id))
+      const releasedIds: string[] = []
+
+      for (const group of selectedGroups) {
+        for (const cube of group.cubes) {
+          state.items.push({
+            id: cube.id,
+            position: worldPositionOfGroupCube(group, cube),
+          })
+          releasedIds.push(cube.id)
+        }
+      }
+
+      state.groups = state.groups.filter(
+        (group) => !removingGroupIds.has(group.id),
+      )
+      state.selectedIds = [
+        ...state.selectedIds.filter((id) => !removingGroupIds.has(id)),
+        ...releasedIds,
+      ]
+    },
     removeActiveCube(state) {
       const removing = new Set(state.selectedIds)
       if (removing.size === 0) return
@@ -208,5 +237,11 @@ export const cubesSlice = createSlice({
         state.items.some((cube) => cube.id === id),
       )
     },
+    selectCanUngroup: (state) =>
+      state.selectedIds.some((id) =>
+        state.groups.some((group) => group.id === id),
+      ),
+    /** Сохранение пока не умеет сериализовать группы. */
+    selectCanWrite: (state) => state.groups.length === 0,
   },
 })
