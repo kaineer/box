@@ -13,7 +13,7 @@ import {
 import styles from './SelectionMarquee.module.css'
 
 const { selectCubes, selectGroups } = cubesSlice.selectors
-const { setSelection } = cubesSlice.actions
+const { setSelection, addToSelection } = cubesSlice.actions
 const { selectMode } = uiSlice.selectors
 
 type DragRect = {
@@ -143,7 +143,9 @@ export function SelectionMarquee() {
         }
 
         if (hitIds.length > 0) {
-          dispatch(setSelection(hitIds))
+          dispatch(
+            event.shiftKey ? addToSelection(hitIds) : setSelection(hitIds),
+          )
         }
         return null
       })

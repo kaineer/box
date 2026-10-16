@@ -1,28 +1,28 @@
-import clsx from 'clsx'
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
-import { useDispatch, useSelector } from 'react-redux'
-import { cubesSlice, type CubesState } from '../../entities/cube/cubesSlice'
-import { uiSlice, type UiState } from '../../entities/ui/uiSlice'
-import type { EditorMode } from '../../shared/config/editor-mode'
+import clsx from "clsx";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { cubesSlice, type CubesState } from "../../entities/cube/cubesSlice";
+import { uiSlice, type UiState } from "../../entities/ui/uiSlice";
+import type { EditorMode } from "../../shared/config/editor-mode";
 import {
   isMenuConfirmCode,
   isMenuDownCode,
   isMenuUpCode,
-} from '../../shared/lib/keys'
-import {
-  runReadCubesAction,
-  runWriteCubesAction,
-} from '../io/cubeIoActions'
+} from "../../shared/lib/keys";
+import { runReadCubesAction, runWriteCubesAction } from "../io/cubeIoActions";
 import {
   menuItemHotkey,
   visibleModeMenuItems,
   type ModeMenuItem,
-} from './menuItems'
-import styles from './ModeMenu.module.css'
-import {
-  getModeMenuScreen,
-  subscribeModeMenuScreen,
-} from './modeMenuScreen'
+} from "./menuItems";
+import styles from "./ModeMenu.module.css";
+import { getModeMenuScreen, subscribeModeMenuScreen } from "./modeMenuScreen";
 
 const {
   selectCubes,
@@ -30,122 +30,141 @@ const {
   selectCanCreateGroup,
   selectCanUngroup,
   selectCanWrite,
-} = cubesSlice.selectors
-const { createGroupFromSelection, ungroupSelectedGroups } = cubesSlice.actions
-const { selectMode, selectModeMenuOpen } = uiSlice.selectors
-const { setMode, closeModeMenu } = uiSlice.actions
+} = cubesSlice.selectors;
+const { createGroupFromSelection, ungroupSelectedGroups } = cubesSlice.actions;
+const { selectMode, selectModeMenuOpen } = uiSlice.selectors;
+const { setMode, closeModeMenu } = uiSlice.actions;
 
-function currentModeItemIndex(
-  items: ModeMenuItem[],
-  mode: EditorMode,
-): number {
-  return items.findIndex((item) => item.kind === 'mode' && item.id === mode)
+function currentModeItemIndex(items: ModeMenuItem[], mode: EditorMode): number {
+  return items.findIndex((item) => item.kind === "mode" && item.id === mode);
 }
 
 export function ModeMenu() {
-  const dispatch = useDispatch()
-  const mode = useSelector((state: { ui: UiState }) => selectMode(state))
-  const open = useSelector((state: { ui: UiState }) => selectModeMenuOpen(state))
-  const cubes = useSelector((state: { cubes: CubesState }) => selectCubes(state))
+  const dispatch = useDispatch();
+  const mode = useSelector((state: { ui: UiState }) => selectMode(state));
+  const open = useSelector((state: { ui: UiState }) =>
+    selectModeMenuOpen(state),
+  );
+  const cubes = useSelector((state: { cubes: CubesState }) =>
+    selectCubes(state),
+  );
   const activeId = useSelector((state: { cubes: CubesState }) =>
     selectActiveId(state),
-  )
+  );
   const canCreateGroup = useSelector((state: { cubes: CubesState }) =>
     selectCanCreateGroup(state),
-  )
+  );
   const canUngroup = useSelector((state: { cubes: CubesState }) =>
     selectCanUngroup(state),
-  )
+  );
   const canWrite = useSelector((state: { cubes: CubesState }) =>
     selectCanWrite(state),
-  )
+  );
   const menuItems = useMemo(
     () => visibleModeMenuItems(canCreateGroup, canUngroup, canWrite),
     [canCreateGroup, canUngroup, canWrite],
-  )
+  );
   const screen = useSyncExternalStore(
     subscribeModeMenuScreen,
     getModeMenuScreen,
     getModeMenuScreen,
-  )
+  );
   const [highlight, setHighlight] = useState(() =>
     Math.max(0, currentModeItemIndex(menuItems, mode)),
-  )
+  );
 
   useEffect(() => {
     if (open) {
-      setHighlight(Math.max(0, currentModeItemIndex(menuItems, mode)))
+      setHighlight(Math.max(0, currentModeItemIndex(menuItems, mode)));
     }
-  }, [open, mode, menuItems])
+  }, [open, mode, menuItems]);
 
   useEffect(() => {
     setHighlight((index) =>
       menuItems.length === 0 ? 0 : Math.min(index, menuItems.length - 1),
-    )
-  }, [menuItems])
+    );
+  }, [menuItems]);
 
   const runItem = useCallback(
     async (item: ModeMenuItem) => {
-      if (item.kind === 'mode') {
-        dispatch(setMode(item.id))
-        return
+      if (item.kind === "mode") {
+        dispatch(setMode(item.id));
+        return;
       }
 
-      if (item.id === 'write') {
-        if (!canWrite) return
-        await runWriteCubesAction(dispatch, cubes, activeId)
-        return
+      const idToAction = {
+        write: () => canWrite && runWriteCubesAction(dispatch, cubes, activeId),
+        read: () => runReadCubesAction(dispatch),
+        group: () => {
+          dispatch(createGroupFromSelection());
+          dispatch(closeModeMenu());
+        },
+        ungroup: () => {
+          dispatch(ungroupSelectedGroups());
+          dispatch(closeModeMenu());
+        },
+      };
+
+      const handle = idToAction[item.id];
+      if (typeof handle === "function") {
+        return handle();
       }
 
-      if (item.id === 'read') {
-        await runReadCubesAction(dispatch)
-        return
-      }
+      // if (item.id === "write") {
+      //   if (!canWrite) return;
+      //   await runWriteCubesAction(dispatch, cubes, activeId);
+      //   return;
+      // }
 
-      if (item.id === 'group') {
-        dispatch(createGroupFromSelection())
-        dispatch(closeModeMenu())
-        return
-      }
+      // if (item.id === "read") {
+      //   await runReadCubesAction(dispatch);
+      //   return;
+      // }
 
-      if (item.id === 'ungroup') {
-        dispatch(ungroupSelectedGroups())
-        dispatch(closeModeMenu())
-      }
+      // if (item.id === "group") {
+      //   dispatch(createGroupFromSelection());
+      //   dispatch(closeModeMenu());
+      //   return;
+      // }
+
+      // if (item.id === "ungroup") {
+      //   dispatch(ungroupSelectedGroups());
+      //   dispatch(closeModeMenu());
+      // }
     },
     [activeId, canWrite, cubes, dispatch],
-  )
+  );
 
   useEffect(() => {
-    if (!open) return
+    if (!open) return;
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (isMenuUpCode(event.code)) {
-        event.preventDefault()
+        event.preventDefault();
         setHighlight(
           (index) => (index - 1 + menuItems.length) % menuItems.length,
-        )
-        return
+        );
+        return;
       }
 
       if (isMenuDownCode(event.code)) {
-        event.preventDefault()
-        setHighlight((index) => (index + 1) % menuItems.length)
-        return
+        event.preventDefault();
+        setHighlight((index) => (index + 1) % menuItems.length);
+        return;
       }
 
       if (isMenuConfirmCode(event.code)) {
-        event.preventDefault()
-        const selected = menuItems[highlight]
-        if (selected) void runItem(selected)
+        event.preventDefault();
+        const selected = menuItems[highlight];
+        if (selected) void runItem(selected);
       }
-    }
+    };
 
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [highlight, menuItems, open, runItem])
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [highlight, menuItems, open, runItem]);
 
-  if (!open || !screen.visible) return null
+  if (!open || !screen.visible) return null;
 
   return (
     <div
@@ -156,12 +175,12 @@ export function ModeMenu() {
     >
       <div className={styles.menu} role="menu" aria-label="Modes">
         {menuItems.map((item, index) => {
-          const hotkey = menuItemHotkey(item, mode)
-          const isCurrent = item.kind === 'mode' && item.id === mode
-          const isHighlighted = index === highlight
-          const isAction = item.kind === 'action'
+          const hotkey = menuItemHotkey(item, mode);
+          const isCurrent = item.kind === "mode" && item.id === mode;
+          const isHighlighted = index === highlight;
+          const isAction = item.kind === "action";
           const isFirstAction =
-            isAction && menuItems[index - 1]?.kind !== 'action'
+            isAction && menuItems[index - 1]?.kind !== "action";
 
           return (
             <button
@@ -180,9 +199,9 @@ export function ModeMenu() {
               {isCurrent && <span className={styles.mark}>*</span>}
               {hotkey && <span className={styles.hotkey}>[{hotkey}]</span>}
             </button>
-          )
+          );
         })}
       </div>
     </div>
-  )
+  );
 }
